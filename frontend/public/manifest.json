@@ -1,0 +1,39 @@
+{
+  "name": "ConnectNow Enterprise",
+  "short_name": "ConnectNow",
+  "description": "Enterprise-grade real-time messaging, status stories, voice notes, and HD video calling.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0a0e1a",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity", "social"],
+  "shortcuts": [
+    {
+      "name": "New Chat",
+      "short_name": "Chat",
+      "description": "Start a new conversation",
+      "url": "/?action=new-chat"
+    },
+    {
+      "name": "Scan QR Code",
+      "short_name": "Scan QR",
+      "description": "Link a new desktop device",
+      "url": "/?action=scan-qr"
+    }
+  ]
+}

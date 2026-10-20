@@ -1,0 +1,15 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+connectnow:
+  jwt:
+    secret: dGVzdC1zZWNyZXQta2V5LWZvci1jb25uZWN0bm93LXRlc3RzLTEyMzQ1Njc4OTA=
+    expiration-ms: 3600000

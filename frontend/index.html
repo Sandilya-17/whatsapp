@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="description" content="ConnectNow — Fast, secure, real-time messaging inspired by modern chat platforms." />
+    <meta name="theme-color" content="#10b981" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ConnectNow" />
+    <link rel="manifest" href="/manifest.json" />
+    <title>ConnectNow — Enterprise Messaging</title>
+    <style>
+      :root {
+        --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+        --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+      }
+      html, body, #root { width: 100%; height: 100%; margin: 0; }
+      @media (max-width: 768px) {
+        html body .app-layout {
+          width: 100% !important;
+          height: 100dvh !important;
+          padding-top: var(--safe-top);
+          box-sizing: border-box;
+        }
+        html body .sidebar {
+          width: 100% !important;
+          min-width: 0 !important;
+          max-width: 100% !important;
+          height: auto !important;
+          top: var(--safe-top) !important;
+          bottom: calc(60px + var(--safe-bottom)) !important;
+        }
+        html body .nav-rail {
+          width: 100% !important;
+          height: calc(60px + var(--safe-bottom)) !important;
+          padding-bottom: var(--safe-bottom) !important;
+          box-sizing: border-box;
+        }
+        html body .chat-area {
+          width: 100% !important;
+          max-width: 100% !important;
+          height: 100dvh !important;
+          padding-top: var(--safe-top);
+          padding-bottom: var(--safe-bottom);
+          box-sizing: border-box;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      window.global = window;
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
