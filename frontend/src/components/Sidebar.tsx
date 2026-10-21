@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { User, Conversation, ContactRequest, CallRecord, Message, StatusStory } from '../types';
-import { getStoredStories, subscribeToStatusUpdates } from '../utils/statusStorage';
+import { getStoredStories, subscribeToStatusUpdates, startStatusSync } from '../utils/statusStorage';
 import {
   getStoredCallRecords,
   deleteCallRecord,
@@ -176,7 +176,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const unsub = subscribeToStatusUpdates(() => {
       setStories(getStoredStories());
     });
-    return unsub;
+    const stopSync = startStatusSync();
+    return () => {
+      unsub();
+      stopSync();
+    };
   }, []);
 
   const myLatestStory = stories.find((s) => s.user?.id === currentUser?.id);

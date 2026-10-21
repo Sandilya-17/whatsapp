@@ -1,58 +1,76 @@
 import type { StatusStory } from '../types';
+import { api } from '../services/api';
 
-const STORAGE_KEY = 'connectnow_stories';
+// Status stories live on the server (so everyone's contacts can see them).
+// This module keeps an in-memory copy and refreshes it from the backend.
 
-export const getStoredStories = (): StatusStory[] => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    // Filter out any previous mock stories
-    return parsed.filter(
-      (s: StatusStory) => s && s.id && !['story-1', 'story-2', 'story-3'].includes(s.id)
-    );
-  } catch {
-    return [];
-  }
-};
+let cache: StatusStory[] = [];
 
-export const saveStoredStories = (stories: StatusStory[]): void => {
+const emitUpdate = () => {
   if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('status:updated'));
+};
+
+const timeAgo = (iso: string): string => {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return iso;
+  const seconds = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  if (seconds < 60) return 'Just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ago`;
+};
+
+const normalize = (list: StatusStory[]): StatusStory[] =>
+  list.map((s) => ({ ...s, createdAt: timeAgo(s.createdAt) }));
+
+export const getStoredStories = (): StatusStory[] => cache;
+
+export const refreshStories = async (): Promise<StatusStory[]> => {
   try {
-    const clean = stories.filter(
-      (s) => s && s.id && !['story-1', 'story-2', 'story-3'].includes(s.id)
-    );
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
-    window.dispatchEvent(new CustomEvent('status:updated'));
+    const list = await api.getStatuses();
+    cache = normalize(Array.isArray(list) ? list : []);
+    emitUpdate();
   } catch {
-    // ignore
+    // keep the previous list if the network call fails
   }
+  return cache;
 };
 
-export const addStoredStory = (story: StatusStory): StatusStory[] => {
-  const current = getStoredStories();
-  const updated = [story, ...current];
-  saveStoredStories(updated);
-  return updated;
+export const postStory = async (data: {
+  content: string;
+  mediaUrl?: string;
+  backgroundGradient: string;
+}): Promise<StatusStory[]> => {
+  await api.postStatus(data);
+  return refreshStories();
 };
 
-export const deleteStoredStory = (storyId: string): StatusStory[] => {
-  const current = getStoredStories();
-  const updated = current.filter((s) => s.id !== storyId);
-  saveStoredStories(updated);
-  return updated;
+export const removeStory = async (storyId: string): Promise<StatusStory[]> => {
+  await api.deleteStatus(storyId);
+  return refreshStories();
 };
 
 export const subscribeToStatusUpdates = (callback: () => void): (() => void) => {
   if (typeof window === 'undefined') return () => {};
-  const handler = () => callback();
-  window.addEventListener('status:updated', handler);
-  window.addEventListener('storage', (e) => {
-    if (e.key === STORAGE_KEY) callback();
-  });
+  window.addEventListener('status:updated', callback);
   return () => {
-    window.removeEventListener('status:updated', handler);
+    window.removeEventListener('status:updated', callback);
+  };
+};
+
+// Loads statuses now, then keeps them fresh (every 20s and when the app comes back to the foreground).
+export const startStatusSync = (): (() => void) => {
+  if (typeof window === 'undefined') return () => {};
+  void refreshStories();
+  const interval = window.setInterval(() => void refreshStories(), 20000);
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') void refreshStories();
+  };
+  document.addEventListener('visibilitychange', onVisible);
+  return () => {
+    window.clearInterval(interval);
+    document.removeEventListener('visibilitychange', onVisible);
   };
 };

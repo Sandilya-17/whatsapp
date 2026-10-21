@@ -1,4 +1,4 @@
-import type { User, Conversation, Message, ContactRequest, UserSearchResult } from '../types';
+import type { User, Conversation, Message, ContactRequest, UserSearchResult, StatusStory } from '../types';
 
 // Backend address. Empty = same site (local dev / docker). Set VITE_API_URL when the backend is hosted elsewhere (e.g. Render).
 export const API_ORIGIN: string = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '');
@@ -160,6 +160,18 @@ export const api = {
     }),
   clearConversation: (conversationId: number) =>
     request<{ message: string }>(`/messages/conversations/${conversationId}/clear`, {
+      method: 'DELETE',
+    }),
+
+  // Status (24h stories)
+  getStatuses: () => request<StatusStory[]>('/status'),
+  postStatus: (data: { content: string; mediaUrl?: string; backgroundGradient: string }) =>
+    request<StatusStory>('/status', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  deleteStatus: (storyId: string) =>
+    request<{ message: string }>(`/status/${storyId.replace('story-', '')}`, {
       method: 'DELETE',
     }),
 

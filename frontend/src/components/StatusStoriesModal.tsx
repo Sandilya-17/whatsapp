@@ -4,8 +4,9 @@ import type { User, StatusStory } from '../types';
 import { api } from '../services/api';
 import {
   getStoredStories,
-  addStoredStory,
-  deleteStoredStory,
+  postStory,
+  removeStory,
+  refreshStories,
   subscribeToStatusUpdates,
 } from '../utils/statusStorage';
 
@@ -48,6 +49,7 @@ export const StatusStoriesModal: React.FC<StatusStoriesModalProps> = ({
     const unsub = subscribeToStatusUpdates(() => {
       setStories(getStoredStories());
     });
+    void refreshStories();
     return unsub;
   }, []);
 
@@ -83,10 +85,14 @@ export const StatusStoriesModal: React.FC<StatusStoriesModalProps> = ({
     setMediaPreview(previewUrl);
   };
 
-  const handleDeleteStory = (storyId: string) => {
-    const updated = deleteStoredStory(storyId);
-    setStories(updated);
-    setActiveStoryIndex(null);
+  const handleDeleteStory = async (storyId: string) => {
+    try {
+      const updated = await removeStory(storyId);
+      setStories(updated);
+      setActiveStoryIndex(null);
+    } catch {
+      window.alert('Could not delete this status. Please try again.');
+    }
   };
 
   const handlePostStory = async (e: React.FormEvent) => {
@@ -102,36 +108,18 @@ export const StatusStoriesModal: React.FC<StatusStoriesModalProps> = ({
         uploadedUrl = res.fileUrl;
       }
 
-      const newStory: StatusStory = {
-        id: `story-${Date.now()}`,
-        user: currentUser,
+      const updated = await postStory({
         content: newContent.trim(),
-        mediaUrl: uploadedUrl || mediaPreview || undefined,
+        mediaUrl: uploadedUrl,
         backgroundGradient: selectedGradient,
-        createdAt: 'Just now',
-        views: 1,
-      };
-
-      const updated = addStoredStory(newStory);
+      });
       setStories(updated);
       setNewContent('');
       setMediaFile(null);
       setMediaPreview(null);
       setIsCreating(false);
     } catch {
-      // If server upload fails, fallback to preview
-      const newStory: StatusStory = {
-        id: `story-${Date.now()}`,
-        user: currentUser,
-        content: newContent.trim(),
-        mediaUrl: mediaPreview || undefined,
-        backgroundGradient: selectedGradient,
-        createdAt: 'Just now',
-        views: 1,
-      };
-      const updated = addStoredStory(newStory);
-      setStories(updated);
-      setIsCreating(false);
+      window.alert('Could not post your status. Please check your connection and try again.');
     } finally {
       setUploading(false);
     }
