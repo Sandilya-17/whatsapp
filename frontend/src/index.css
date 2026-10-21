@@ -1983,3 +1983,23 @@ body {
   pointer-events: none;
 }
 
+
+/* Mobile chat input fix: keep the send button visible */
+.chat-input-wrapper { min-width: 0; }
+.chat-textarea { min-width: 0; }
+
+@media (max-width: 768px) {
+  .chat-input-wrapper {
+    flex-wrap: wrap;
+    padding: 6px 10px !important;
+    gap: 4px !important;
+  }
+  .chat-textarea {
+    order: -1;
+    flex: 1 1 100%;
+    width: 100%;
+    padding: 6px 2px;
+  }
+  .chat-input-wrapper .icon-btn { padding: 7px; }
+  .send-btn { width: 42px; height: 42px; }
+}
