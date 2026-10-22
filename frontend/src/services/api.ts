@@ -16,6 +16,16 @@ export function setAuthToken(token: string | null) {
   }
 }
 
+export class ApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getAuthToken();
   const headers: HeadersInit = {
@@ -24,13 +34,33 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     ...options.headers,
   };
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  // Render's free tier sleeps and wakes slowly: retry network failures / gateway errors on safe (GET) calls instead of failing.
+  const isGet = !options.method || options.method === 'GET';
+  const maxAttempts = isGet ? 4 : 1;
+  let response!: Response;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      response = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+      if (isGet && [502, 503, 504].includes(response.status) && attempt < maxAttempts) {
+        await sleep(1500 * attempt);
+        continue;
+      }
+      break;
+    } catch {
+      if (attempt === maxAttempts) {
+        throw new ApiError('Cannot reach the server. Check your connection and try again.', 0);
+      }
+      await sleep(1500 * attempt);
+    }
+  }
+
+  // Sliding session: server hands back a fresh token as the old one ages
+  const refreshed = response.headers.get('X-Refreshed-Token');
+  if (refreshed) setAuthToken(refreshed);
 
   if (!response.ok) {
-    if ((response.status === 401 || response.status === 403) && !endpoint.startsWith('/auth/')) {
+    // Only a 401 means the session is really gone. 403 is a permission error (e.g. "not a member") and must NOT log you out.
+    if (response.status === 401 && !endpoint.startsWith('/auth/')) {
       setAuthToken(null);
       if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('auth:expired'));
@@ -47,7 +77,7 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     } catch {
       // ignore json parse error
     }
-    throw new Error(errorMsg);
+    throw new ApiError(errorMsg, response.status);
   }
 
   // Handle empty responses
@@ -119,6 +149,8 @@ export const api = {
     request<Conversation>(`/conversations/direct/${targetUserId}`, {
       method: 'POST',
     }),
+  deleteConversation: (id: number) =>
+    request<{ message: string }>(`/conversations/${id}`, { method: 'DELETE' }),
   getConversation: (id: number) => request<Conversation>(`/conversations/${id}`),
   createGroup: (title: string, description: string, memberIds: number[]) =>
     request<Conversation>('/conversations/group', {

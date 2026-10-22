@@ -9,6 +9,7 @@ import { GroupInfoModal } from './GroupInfoModal';
 import { MediaGalleryModal } from './MediaGalleryModal';
 import { ShareLocationModal } from './ShareLocationModal';
 import { ChatLockModal } from './ChatLockModal';
+import { CameraCaptureModal } from './CameraCaptureModal';
 import { api } from '../services/api';
 import { sound } from '../utils/sound';
 import {
@@ -24,7 +25,6 @@ import {
   X,
   ArrowLeft,
   MessageSquare,
-  Paperclip,
   Mic,
   Search,
   Pin,
@@ -43,6 +43,9 @@ import {
   Lock,
   Unlock,
   MoreVertical,
+  Camera,
+  Plus,
+  FileText,
 } from 'lucide-react';
 
 interface ChatAreaProps {
@@ -155,6 +158,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const [showAttachMenu, setShowAttachMenu] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -259,8 +266,12 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    const input = e.target;
+    if (file) await uploadAndSend(file);
+    input.value = '';
+  };
 
+  const uploadAndSend = async (file: File) => {
     try {
       setUploading(true);
       if (onNotify) onNotify(`Uploading ${file.name}...`, 'info');
@@ -285,7 +296,6 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       if (onNotify) onNotify(err.message || 'File upload failed', 'error');
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -588,8 +598,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         ref={fileInputRef}
         style={{ display: 'none' }}
         onChange={handleFileUpload}
-        accept="image/*,application/pdf,.doc,.docx,.txt,.zip"
+        accept="application/pdf,.doc,.docx,.txt,.zip,.xls,.xlsx,.ppt,.pptx,image/*"
       />
+      {/* Gallery picker */}
+      <input type="file" ref={photoInputRef} style={{ display: 'none' }} onChange={handleFileUpload} accept="image/*" />
+      {/* Native camera on phones (opens the camera app directly) */}
+      <input type="file" ref={cameraInputRef} style={{ display: 'none' }} onChange={handleFileUpload} accept="image/*" capture="environment" />
+      {showCamera && <CameraCaptureModal onClose={() => setShowCamera(false)} onCapture={uploadAndSend} />}
 
       {/* Chat Top Header */}
       <header className="chat-header">
@@ -1150,62 +1165,70 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
               <Smile size={20} />
             </button>
 
-            {/* File Attachment */}
+            {/* Attach menu */}
+            <div style={{ position: 'relative', display: 'flex' }}>
+              <button
+                type="button"
+                className={`icon-btn attach-plus ${showAttachMenu ? 'open' : ''}`}
+                onClick={() => setShowAttachMenu((v) => !v)}
+                title="Attach"
+                disabled={uploading}
+                aria-expanded={showAttachMenu}
+              >
+                <Plus size={22} />
+              </button>
+              {showAttachMenu && (
+                <>
+                  <div className="attach-backdrop" onClick={() => setShowAttachMenu(false)} />
+                  <div className="attach-menu">
+                    <button type="button" onClick={() => { setShowAttachMenu(false); /* phones: native camera app; desktop: in-app camera */
+                      if (window.matchMedia('(pointer: coarse)').matches) cameraInputRef.current?.click(); else setShowCamera(true); }}>
+                      <span className="attach-ico" style={{ background: '#ef4444' }}><Camera size={18} /></span> Camera
+                    </button>
+                    <button type="button" onClick={() => { setShowAttachMenu(false); photoInputRef.current?.click(); }}>
+                      <span className="attach-ico" style={{ background: '#8b5cf6' }}><ImageIcon size={18} /></span> Photo
+                    </button>
+                    <button type="button" onClick={() => { setShowAttachMenu(false); fileInputRef.current?.click(); }}>
+                      <span className="attach-ico" style={{ background: '#3b82f6' }}><FileText size={18} /></span> Document
+                    </button>
+                    <button type="button" onClick={() => { setShowAttachMenu(false); setShowLocationModal(true); }}>
+                      <span className="attach-ico" style={{ background: '#10b981' }}><MapPin size={18} /></span> Location
+                    </button>
+                    <button type="button" onClick={() => { setShowAttachMenu(false); setShowPollModal(true); }}>
+                      <span className="attach-ico" style={{ background: '#f59e0b' }}><BarChart2 size={18} /></span> Poll
+                    </button>
+                    <button type="button" onClick={() => { setShowAttachMenu(false); setShowScheduleModal(true); }}>
+                      <span className="attach-ico" style={{ background: '#06b6d4' }}><Calendar size={18} /></span> Schedule
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Quick camera button */}
             <button
               type="button"
               className="icon-btn"
-              onClick={() => fileInputRef.current?.click()}
-              title="Attach File or Image"
+              onClick={() => {
+                if (window.matchMedia('(pointer: coarse)').matches) cameraInputRef.current?.click();
+                else setShowCamera(true);
+              }}
+              title="Take a photo"
               disabled={uploading}
             >
-              <Paperclip size={20} />
-            </button>
-
-            {/* Create Poll */}
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={() => setShowPollModal(true)}
-              title="Create Team Poll"
-            >
-              <BarChart2 size={20} />
-            </button>
-
-            {/* Schedule Message */}
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={() => setShowScheduleModal(true)}
-              title="Schedule Message for Later"
-            >
-              <Calendar size={19} />
+              <Camera size={20} />
             </button>
 
             {/* Voice record trigger */}
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={startVoiceRecord}
-              title="Record Voice Note"
-            >
+            <button type="button" className="icon-btn" onClick={startVoiceRecord} title="Record Voice Note">
               <Mic size={20} />
-            </button>
-
-            {/* WhatsApp Location Sharing */}
-            <button
-              type="button"
-              className="icon-btn"
-              onClick={() => setShowLocationModal(true)}
-              title="Share Location & Live Beacon"
-            >
-              <MapPin size={19} />
             </button>
 
             {/* Textarea */}
             <textarea
               className="chat-textarea"
               rows={1}
-              placeholder={editingMessage ? 'Edit your message...' : 'Type a corporate message (*bold*, _italic_, `code`)...'}
+              placeholder={editingMessage ? 'Edit your message...' : 'Message'}
               value={inputText}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}

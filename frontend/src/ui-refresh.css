@@ -1,0 +1,247 @@
+/* =====================================================================
+   ConnectNow – UI refresh layer (loaded after index.css)
+   1) fixes classes that were used but never defined (modals, buttons)
+   2) camera + attach menu
+   3) visual polish: palette, bubbles, composer, list, rail, motion
+   ===================================================================== */
+
+/* ---------- 1. Previously undefined classes (Linked devices, Download apps, Location, Chat lock) ---------- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: rgba(3, 7, 18, 0.62);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: fadeIn 0.18s ease-out;
+  overflow-y: auto;
+}
+.modal-container {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100dvh - 32px);
+  width: min(94vw, 520px);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 24px;
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  animation: fadeInScale 0.22s ease-out;
+}
+.modal-container > .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  max-height: none !important;
+}
+.modal-container .modal-header { flex-shrink: 0; }
+.modal-container img, .modal-container video, .modal-container canvas { max-width: 100%; }
+
+.btn-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; padding: 0;
+  border-radius: 50%; border: none; cursor: pointer;
+  background: transparent; color: var(--text-secondary);
+  transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+}
+.btn-icon:hover { background: var(--bg-hover); color: var(--text-primary); }
+.btn-icon:active { transform: scale(0.92); }
+
+.btn-primary, .btn-secondary {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 42px; padding: 10px 18px;
+  border-radius: 12px; font: inherit; font-weight: 600; font-size: 14px;
+  cursor: pointer; transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+.btn-primary { border: none; color: #fff; background: var(--accent-gradient); box-shadow: 0 6px 18px var(--accent-glow); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 24px var(--accent-glow); }
+.btn-primary:active { transform: scale(0.97); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.btn-secondary { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-default); }
+.btn-secondary:hover { background: var(--bg-hover); }
+
+@keyframes scanLine {
+  0%, 100% { top: 6%; opacity: 0.4; }
+  50% { top: 92%; opacity: 1; }
+}
+
+/* Phones: modals become bottom sheets */
+@media (max-width: 640px) {
+  .modal-backdrop { align-items: flex-end; padding: 0; }
+  .modal-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 92dvh;
+    border-radius: 22px 22px 0 0 !important;
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: slideInUp 0.25s ease-out;
+  }
+  .modal-container .modal-body { padding: 16px !important; }
+  .modal-container .modal-header { padding: 14px 16px !important; }
+}
+
+/* ---------- 2. Camera + attach menu ---------- */
+.camera-modal {
+  position: fixed; inset: 0; z-index: 400; background: #000;
+  display: flex; flex-direction: column;
+  animation: fadeIn 0.15s ease-out;
+}
+.camera-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; background: #000; }
+.camera-stage video, .camera-stage img { width: 100%; height: 100%; object-fit: contain; }
+.camera-top {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 2;
+  display: flex; justify-content: space-between;
+  padding: max(14px, env(safe-area-inset-top)) 16px 14px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.55), transparent);
+}
+.camera-bottom {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 2;
+  display: flex; justify-content: center; align-items: center; gap: 14px;
+  padding: 18px 16px max(26px, env(safe-area-inset-bottom));
+  background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
+}
+.camera-round {
+  width: 44px; height: 44px; border-radius: 50%; border: none; cursor: pointer;
+  background: rgba(255,255,255,0.18); color: #fff; backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+}
+.camera-shutter {
+  width: 74px; height: 74px; border-radius: 50%; cursor: pointer;
+  background: rgba(255,255,255,0.2); border: 4px solid #fff; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.12s;
+}
+.camera-shutter:active { transform: scale(0.88); background: #fff; color: #000; }
+.camera-pill {
+  display: inline-flex; align-items: center; gap: 8px; padding: 12px 24px; border-radius: 999px;
+  border: none; cursor: pointer; font-weight: 700; font-size: 15px; color: #fff; background: rgba(255,255,255,0.2);
+}
+.camera-pill.primary { background: var(--accent-gradient); }
+.camera-error { color: #e2e8f0; padding: 32px; text-align: center; max-width: 340px; line-height: 1.5; }
+
+.attach-backdrop { position: fixed; inset: 0; z-index: 60; }
+.attach-menu {
+  position: absolute; bottom: calc(100% + 14px); left: -6px; z-index: 61;
+  min-width: 190px; padding: 8px;
+  display: flex; flex-direction: column; gap: 2px;
+  background: var(--bg-elevated); border: 1px solid var(--border-default);
+  border-radius: 18px; box-shadow: var(--shadow-xl);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  animation: fadeInScale 0.16s ease-out; transform-origin: bottom left;
+}
+.attach-menu button {
+  display: flex; align-items: center; gap: 12px; padding: 9px 12px; border: none; border-radius: 12px;
+  background: transparent; color: var(--text-primary); font: inherit; font-size: 14px; font-weight: 500; cursor: pointer; text-align: left;
+}
+.attach-menu button:hover { background: var(--bg-hover); }
+.attach-ico { width: 34px; height: 34px; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.attach-plus { transition: transform 0.2s ease; }
+.attach-plus.open { transform: rotate(45deg); }
+
+/* ---------- 3. Visual polish ---------- */
+:root {
+  --bg-primary: #070b14;
+  --bg-secondary: #0e1420;
+  --bg-surface: #0b101a;
+  --bg-tertiary: #18212f;
+  --accent-primary: #12b886;
+  --accent-secondary: #0a9a6f;
+  --accent-gradient: linear-gradient(135deg, #0a9a6f 0%, #12b886 55%, #3ddbb0 100%);
+  --bubble-sent: linear-gradient(145deg, #0b8f68 0%, #12b886 100%);
+  --bubble-received: #172131;
+  --radius-lg: 18px;
+}
+
+html { -webkit-tap-highlight-color: transparent; }
+body { text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+* { scrollbar-width: thin; scrollbar-color: rgba(148,163,184,0.25) transparent; }
+button { -webkit-tap-highlight-color: transparent; }
+button:active:not(:disabled) { transform: scale(0.97); }
+
+/* Chat canvas */
+.chat-area {
+  background-image:
+    radial-gradient(circle at 20% 10%, rgba(18,184,134,0.07), transparent 40%),
+    radial-gradient(circle at 85% 90%, rgba(59,130,246,0.06), transparent 45%);
+}
+.chat-header {
+  background: color-mix(in srgb, var(--bg-secondary) 82%, transparent);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 1px 0 var(--border-subtle), 0 8px 24px rgba(0,0,0,0.12);
+}
+
+/* Bubbles */
+.message-bubble {
+  border-radius: 18px;
+  padding: 9px 13px 7px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  animation: slideInUp 0.18s ease-out;
+}
+.message-row.sent .message-bubble { border-bottom-right-radius: 5px; }
+.message-row.received .message-bubble { border-bottom-left-radius: 5px; backdrop-filter: none; }
+.message-bubble img, .message-media img { border-radius: 12px; max-width: 100%; height: auto; }
+
+/* Composer */
+.chat-input-container {
+  background: transparent;
+  border-top: none;
+  padding: 10px 14px calc(12px + env(safe-area-inset-bottom));
+  gap: 10px;
+  align-items: center;
+}
+.chat-input-wrapper {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 26px;
+  padding: 6px 10px;
+  gap: 2px;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.18);
+}
+.chat-input-wrapper .icon-btn { width: 36px; height: 36px; flex-shrink: 0; }
+.chat-textarea { padding: 8px 6px; font-size: 15px; }
+.send-btn { width: 48px; height: 48px; color: #fff; }
+
+/* Conversation list */
+.conv-item {
+  margin: 2px 8px;
+  border-radius: 14px;
+  border: none;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+.conv-item:hover { background: var(--bg-tertiary); }
+.conv-item.active { background: color-mix(in srgb, var(--accent-primary) 16%, var(--bg-tertiary)); }
+.avatar-img { box-shadow: 0 0 0 2px var(--bg-secondary), 0 0 0 3px var(--border-default); }
+.unread-badge { background: var(--accent-gradient); color: #fff; box-shadow: 0 2px 8px var(--accent-glow); }
+.sidebar-search-box input, .search-input-wrapper { border-radius: 14px; }
+
+/* Rail / tabs */
+.nav-rail { background: var(--bg-surface); }
+.rail-btn { border-radius: 14px; transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast); }
+.rail-btn.active { background: color-mix(in srgb, var(--accent-primary) 16%, transparent); color: var(--accent-primary); }
+.tab-btn.active { background: var(--accent-gradient); color: #fff; box-shadow: 0 4px 14px var(--accent-glow); }
+
+/* Toasts, menus */
+.toast { border-radius: 14px; backdrop-filter: blur(14px); box-shadow: var(--shadow-lg); }
+.message-actions-menu, .whatsapp-dropdown-menu { border-radius: 16px; box-shadow: var(--shadow-xl); }
+
+/* Light theme tune-up */
+[data-theme="light"] { --bubble-received: #ffffff; }
+[data-theme="light"] .chat-input-wrapper { background: #fff; }
+[data-theme="light"] .attach-menu { background: #fff; }
+
+/* Phones */
+@media (max-width: 768px) {
+  .chat-input-wrapper .icon-btn { width: 34px; height: 34px; }
+  .chat-input-container { padding: 8px 8px calc(10px + env(safe-area-inset-bottom)) !important; }
+  .conv-item { margin: 1px 6px; }
+  .attach-menu { left: -2px; min-width: 200px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

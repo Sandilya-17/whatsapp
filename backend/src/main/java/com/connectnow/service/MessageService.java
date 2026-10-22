@@ -9,12 +9,17 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.messaging.simp.user.SimpUserRegistry;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 public class MessageService {
@@ -25,6 +30,7 @@ public class MessageService {
     private final MessageDeletionRepository messageDeletionRepository;
     private final BlockedUserRepository blockedUserRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final SimpUserRegistry userRegistry;
 
     public MessageService(
             MessageRepository messageRepository,
@@ -32,13 +38,45 @@ public class MessageService {
             ConversationMemberRepository conversationMemberRepository,
             MessageDeletionRepository messageDeletionRepository,
             BlockedUserRepository blockedUserRepository,
-            SimpMessagingTemplate messagingTemplate) {
+            SimpMessagingTemplate messagingTemplate,
+            SimpUserRegistry userRegistry) {
         this.messageRepository = messageRepository;
         this.conversationRepository = conversationRepository;
         this.conversationMemberRepository = conversationMemberRepository;
         this.messageDeletionRepository = messageDeletionRepository;
         this.blockedUserRepository = blockedUserRepository;
         this.messagingTemplate = messagingTemplate;
+        this.userRegistry = userRegistry;
+    }
+
+    /** Runs the task once the surrounding transaction has committed (so clients never react to rows that aren't visible yet). */
+    private void afterCommit(Runnable task) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    task.run();
+                }
+            });
+        } else {
+            task.run();
+        }
+    }
+
+    private boolean isOnline(User user) {
+        try {
+            return userRegistry.getUser(user.getUsername()) != null;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private void pushReceipt(User target, MessageStatusUpdateDto dto) {
+        try {
+            messagingTemplate.convertAndSendToUser(target.getUsername(), "/queue/receipts", dto);
+        } catch (Exception ignored) {
+            // offline user - they'll get the correct status from the DB when they next load the chat
+        }
     }
 
     @Transactional
@@ -87,6 +125,19 @@ public class MessageService {
             messageRepository.findById(request.getReplyToMessageId()).ifPresent(message::setReplyTo);
         }
 
+        // Delivered (double grey tick) as soon as at least one recipient has a live connection
+        List<ConversationMember> members = conversationMemberRepository.findByConversation(conversation);
+        boolean anyRecipientOnline = false;
+        for (ConversationMember member : members) {
+            if (!member.getUser().getId().equals(sender.getId()) && isOnline(member.getUser())) {
+                anyRecipientOnline = true;
+                break;
+            }
+        }
+        if (anyRecipientOnline) {
+            message.setStatus(MessageStatus.DELIVERED);
+        }
+
         message = messageRepository.save(message);
 
         // Update conversation summary
@@ -101,35 +152,36 @@ public class MessageService {
         conversation.setLastMessageAt(Instant.now());
         conversationRepository.save(conversation);
 
-        // Increment unread count for other members
-        List<ConversationMember> members = conversationMemberRepository.findByConversation(conversation);
+        // Unread count for other members; a deleted (hidden) chat reappears when a new message arrives
         for (ConversationMember member : members) {
             if (!member.getUser().getId().equals(sender.getId())) {
                 member.setUnreadCount(member.getUnreadCount() + 1);
-                conversationMemberRepository.save(member);
             }
+            member.setHidden(false);
+            conversationMemberRepository.save(member);
         }
 
-        MessageDto dto = MessageDto.fromEntity(message);
+        final MessageDto dto = MessageDto.fromEntity(message);
+        final Long conversationId = conversation.getId();
+        final List<User> recipients = members.stream()
+                .map(ConversationMember::getUser)
+                .filter(u -> !u.getId().equals(sender.getId()))
+                .toList();
 
-        // Real-time dispatch via STOMP:
-        // 1. Broadcast to conversation topic
-        messagingTemplate.convertAndSend("/topic/conversations/" + conversation.getId(), dto);
+        // Real-time dispatch via STOMP, only after the row is committed (prevents read-receipt race)
+        afterCommit(() -> {
+            // 1. Broadcast to conversation topic
+            messagingTemplate.convertAndSend("/topic/conversations/" + conversationId, dto);
 
-        // 2. Direct message event to each member's personal user queue
-        for (ConversationMember member : members) {
-            if (!member.getUser().getId().equals(sender.getId())) {
+            // 2. Direct message event to each recipient's personal user queue
+            for (User recipient : recipients) {
                 try {
-                    messagingTemplate.convertAndSendToUser(
-                            member.getUser().getUsername(),
-                            "/queue/messages",
-                            dto
-                    );
+                    messagingTemplate.convertAndSendToUser(recipient.getUsername(), "/queue/messages", dto);
                 } catch (Exception e) {
                     // Ignore offline user dispatch failure
                 }
             }
-        }
+        });
 
         return dto;
     }
@@ -139,12 +191,12 @@ public class MessageService {
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new IllegalArgumentException("Conversation not found"));
 
-        if (!conversationMemberRepository.existsByConversationAndUser(conversation, currentUser)) {
-            throw new SecurityException("You are not authorized to view messages in this conversation");
-        }
+        ConversationMember viewer = conversationMemberRepository.findByConversationAndUser(conversation, currentUser)
+                .orElseThrow(() -> new SecurityException("You are not authorized to view messages in this conversation"));
 
+        Instant clearedAt = viewer.getClearedAt() != null ? viewer.getClearedAt() : Instant.EPOCH;
         Pageable pageable = PageRequest.of(page, size);
-        Page<Message> messages = messageRepository.findVisibleMessagesForUser(conversation, currentUser.getId(), pageable);
+        Page<Message> messages = messageRepository.findVisibleMessagesForUser(conversation, currentUser.getId(), clearedAt, pageable);
         return messages.map(MessageDto::fromEntity);
     }
 
@@ -162,14 +214,47 @@ public class MessageService {
         // Update all incoming messages in DB to READ
         messageRepository.markMessagesAsReadForUser(conversation, currentUser.getId());
 
-        // Broadcast READ status to conversation channel
+        // Broadcast READ status (conversation channel + each other member's personal queue)
         MessageStatusUpdateDto update = new MessageStatusUpdateDto(
                 null,
                 conversationId,
                 MessageStatus.READ,
                 currentUser.getId()
         );
-        messagingTemplate.convertAndSend("/topic/conversations/" + conversationId + "/receipts", update);
+        List<User> others = conversationMemberRepository.findByConversation(conversation).stream()
+                .map(ConversationMember::getUser)
+                .filter(u -> !u.getId().equals(currentUser.getId()))
+                .toList();
+        afterCommit(() -> {
+            messagingTemplate.convertAndSend("/topic/conversations/" + conversationId + "/receipts", update);
+            for (User other : others) {
+                pushReceipt(other, update);
+            }
+        });
+    }
+
+    /** Called when a user connects: everything sent to them while they were offline becomes DELIVERED. */
+    @Transactional
+    public void markDeliveredForUser(User user) {
+        List<Message> pending = messageRepository.findUndeliveredForUser(user.getId());
+        if (pending.isEmpty()) {
+            return;
+        }
+
+        Set<String> notified = new HashSet<>();
+        List<Runnable> pushes = new java.util.ArrayList<>();
+        for (Message m : pending) {
+            m.setStatus(MessageStatus.DELIVERED);
+            messageRepository.save(m);
+
+            Long convId = m.getConversation().getId();
+            User sender = m.getSender();
+            if (notified.add(convId + ":" + sender.getId())) {
+                MessageStatusUpdateDto update = new MessageStatusUpdateDto(null, convId, MessageStatus.DELIVERED, user.getId());
+                pushes.add(() -> pushReceipt(sender, update));
+            }
+        }
+        afterCommit(() -> pushes.forEach(Runnable::run));
     }
 
     @Transactional
@@ -222,15 +307,11 @@ public class MessageService {
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new IllegalArgumentException("Conversation not found"));
 
-        if (!conversationMemberRepository.existsByConversationAndUser(conversation, currentUser)) {
-            throw new SecurityException("You are not a member of this conversation");
-        }
+        ConversationMember member = conversationMemberRepository.findByConversationAndUser(conversation, currentUser)
+                .orElseThrow(() -> new SecurityException("You are not a member of this conversation"));
 
-        Page<Message> messages = messageRepository.findVisibleMessagesForUser(conversation, currentUser.getId(), PageRequest.of(0, 1000));
-        for (Message msg : messages.getContent()) {
-            if (!messageDeletionRepository.existsByUserAndMessage(currentUser, msg)) {
-                messageDeletionRepository.save(new MessageDeletion(currentUser, msg));
-            }
-        }
+        member.setClearedAt(Instant.now());
+        member.setUnreadCount(0);
+        conversationMemberRepository.save(member);
     }
 }

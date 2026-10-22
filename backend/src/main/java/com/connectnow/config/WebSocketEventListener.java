@@ -3,6 +3,7 @@ package com.connectnow.config;
 import com.connectnow.dto.PresenceDto;
 import com.connectnow.model.User;
 import com.connectnow.repository.UserRepository;
+import com.connectnow.service.MessageService;
 import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
@@ -18,10 +19,12 @@ public class WebSocketEventListener {
 
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final MessageService messageService;
 
-    public WebSocketEventListener(UserRepository userRepository, SimpMessagingTemplate messagingTemplate) {
+    public WebSocketEventListener(UserRepository userRepository, SimpMessagingTemplate messagingTemplate, MessageService messageService) {
         this.userRepository = userRepository;
         this.messagingTemplate = messagingTemplate;
+        this.messageService = messageService;
     }
 
     @EventListener
@@ -50,6 +53,14 @@ public class WebSocketEventListener {
 
             PresenceDto dto = new PresenceDto(user.getId(), user.getUsername(), isOnline, user.getLastSeenAt());
             messagingTemplate.convertAndSend("/topic/presence", dto);
+
+            if (isOnline) {
+                try {
+                    messageService.markDeliveredForUser(user);
+                } catch (Exception ignored) {
+                    // delivery receipts are best-effort
+                }
+            }
         }
     }
 }

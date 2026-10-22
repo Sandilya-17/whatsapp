@@ -17,7 +17,7 @@ public class JwtTokenProvider {
 
     public JwtTokenProvider(
             @Value("${connectnow.jwt.secret:c3VwZXItc2VjdXJlLWtleS1mb3ItY29ubmVjdG5vdy13aGF0c2FwcC1zdHlsZS1hcHAtMjAyNA==}") String secret,
-            @Value("${connectnow.jwt.expiration-ms:86400000}") long expirationMs) {
+            @Value("${connectnow.jwt.expiration-ms:2592000000}") long expirationMs) {
         // Ensure key is at least 256 bits (32 bytes)
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         if (keyBytes.length < 32) {
@@ -49,6 +49,20 @@ public class JwtTokenProvider {
                 .parseSignedClaims(token)
                 .getPayload();
         return claims.getSubject();
+    }
+
+    public long getExpirationMs() {
+        return expirationMs;
+    }
+
+    /** Milliseconds of life left in the token (0 if invalid/expired). */
+    public long getRemainingMs(String token) {
+        try {
+            Date exp = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload().getExpiration();
+            return Math.max(0, exp.getTime() - System.currentTimeMillis());
+        } catch (JwtException | IllegalArgumentException ex) {
+            return 0;
+        }
     }
 
     public boolean validateToken(String token) {

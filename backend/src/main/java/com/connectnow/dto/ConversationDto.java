@@ -37,6 +37,10 @@ public class ConversationDto {
         for (ConversationMember member : conversation.getMembers()) {
             if (member.getUser().getId().equals(currentUser.getId())) {
                 unread = member.getUnreadCount();
+                if (member.getClearedAt() != null && conversation.getLastMessageAt() != null
+                        && !conversation.getLastMessageAt().isAfter(member.getClearedAt())) {
+                    dto.setLastMessagePreview("");
+                }
             } else {
                 otherUser = member.getUser();
                 dto.getMembers().add(UserDto.fromEntity(member.getUser()));

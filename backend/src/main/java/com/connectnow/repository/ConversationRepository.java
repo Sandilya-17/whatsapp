@@ -20,6 +20,6 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
             @Param("user1") User user1,
             @Param("user2") User user2);
 
-    @Query("SELECT DISTINCT c FROM Conversation c JOIN c.members m WHERE m.user = :user ORDER BY c.lastMessageAt DESC")
+    @Query("SELECT DISTINCT c FROM Conversation c JOIN c.members m WHERE m.user = :user AND (m.hidden IS NULL OR m.hidden = false) ORDER BY c.lastMessageAt DESC")
     List<Conversation> findAllByMemberUserOrderByLastMessageAtDesc(@Param("user") User user);
 }

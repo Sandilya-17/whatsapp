@@ -49,6 +49,14 @@ public class ConversationController {
         return ResponseEntity.ok(group);
     }
 
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, String>> deleteConversation(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable Long id) {
+        conversationService.deleteConversationForUser(currentUser, id);
+        return ResponseEntity.ok(Map.of("message", "Conversation deleted"));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ConversationDto> getConversation(
             @AuthenticationPrincipal User currentUser,

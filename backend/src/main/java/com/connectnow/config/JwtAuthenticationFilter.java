@@ -46,6 +46,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     );
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);
+
+                    // Sliding session: once less than half the token's life is left, hand the client a fresh one.
+                    if (tokenProvider.getRemainingMs(jwt) < tokenProvider.getExpirationMs() / 2) {
+                        response.setHeader("X-Refreshed-Token", tokenProvider.generateToken(user.getUsername()));
+                    }
                 }
             }
         } catch (Exception ex) {

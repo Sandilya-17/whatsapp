@@ -354,8 +354,8 @@ export const LinkedDevicesModal: React.FC<LinkedDevicesModalProps> = ({
               <div
                 style={{
                   position: 'relative',
-                  width: '280px',
-                  height: '280px',
+                  width: 'min(280px, 100%)',
+                  aspectRatio: '1 / 1',
                   margin: '0 auto 16px',
                   borderRadius: '24px',
                   overflow: 'hidden',

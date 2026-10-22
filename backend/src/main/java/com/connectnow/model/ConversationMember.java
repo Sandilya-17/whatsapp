@@ -31,6 +31,12 @@ public class ConversationMember {
 
     private Instant mutedUntil;
 
+    /** Per-user "delete chat": hides the conversation from this user's list until a new message arrives. Nullable for old rows. */
+    private Boolean hidden = false;
+
+    /** Messages created before this instant are invisible to this user (set by "clear chat" / "delete chat"). */
+    private Instant clearedAt;
+
     @Column(nullable = false, updatable = false)
     private Instant joinedAt = Instant.now();
 
@@ -98,6 +104,22 @@ public class ConversationMember {
 
     public void setMutedUntil(Instant mutedUntil) {
         this.mutedUntil = mutedUntil;
+    }
+
+    public boolean isHidden() {
+        return Boolean.TRUE.equals(hidden);
+    }
+
+    public void setHidden(boolean hidden) {
+        this.hidden = hidden;
+    }
+
+    public Instant getClearedAt() {
+        return clearedAt;
+    }
+
+    public void setClearedAt(Instant clearedAt) {
+        this.clearedAt = clearedAt;
     }
 
     public Instant getJoinedAt() {

@@ -10,7 +10,7 @@ import type {
   PollData,
   SharedLocation,
 } from './types';
-import { api, getAuthToken, setAuthToken } from './services/api';
+import { api, getAuthToken, setAuthToken, ApiError } from './services/api';
 import { wsService } from './services/websocket';
 import { sound } from './utils/sound';
 import { AuthModal } from './components/AuthModal';
@@ -37,9 +37,15 @@ import {
   subscribeToStarredUpdates,
 } from './utils/starredStorage';
 
+const STATUS_RANK: Record<string, number> = { SENT: 1, DELIVERED: 2, READ: 3 };
+/** Ticks only ever move forward: SENT -> DELIVERED -> READ. */
+const maxStatus = (a?: string, b?: string) => ((STATUS_RANK[a || ''] || 0) >= (STATUS_RANK[b || ''] || 0) ? a : b) as Message['status'];
+
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loadingInitial, setLoadingInitial] = useState(true);
+  const [bootFailed, setBootFailed] = useState(false);
+  const [bootAttempt, setBootAttempt] = useState(0);
 
   // Core Data
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -150,27 +156,37 @@ export const App: React.FC = () => {
     window.addEventListener('auth:expired', handleAuthExpired);
 
     const token = getAuthToken();
+    let cancelled = false;
     if (token) {
+      setBootFailed(false);
+      setLoadingInitial(true);
       api
         .getCurrentUser()
         .then((user) => {
-          setCurrentUser(user);
+          if (!cancelled) setCurrentUser(user);
         })
-        .catch(() => {
-          setAuthToken(null);
-          setCurrentUser(null);
+        .catch((err) => {
+          if (err instanceof ApiError && err.status === 401) {
+            // token genuinely invalid/expired -> sign in again
+            setAuthToken(null);
+            setCurrentUser(null);
+          } else if (!cancelled) {
+            // server asleep / network down: KEEP the session and let the user retry
+            setBootFailed(true);
+          }
         })
         .finally(() => {
-          setLoadingInitial(false);
+          if (!cancelled) setLoadingInitial(false);
         });
     } else {
       setLoadingInitial(false);
     }
 
     return () => {
+      cancelled = true;
       window.removeEventListener('auth:expired', handleAuthExpired);
     };
-  }, []);
+  }, [bootAttempt]);
 
   // When user is authenticated, load data and connect WebSocket
   useEffect(() => {
@@ -237,6 +253,19 @@ export const App: React.FC = () => {
         loadConversations();
       });
 
+      // 2b. Delivery / read receipts for messages I sent (works even when that chat isn't open)
+      wsService.subscribe('/user/queue/receipts', (receipt: { conversationId: number; messageId?: number | null; status: 'DELIVERED' | 'READ'; updatedByUserId: number }) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.conversationId === receipt.conversationId &&
+            m.sender?.id === currentUser.id &&
+            (receipt.messageId == null || m.id === receipt.messageId)
+              ? { ...m, status: maxStatus(m.status, receipt.status) }
+              : m
+          )
+        );
+      });
+
       // 3. Subscribe to global presence channel
       wsService.subscribe('/topic/presence', (presence: PresenceNotification) => {
         handlePresenceUpdate(presence);
@@ -290,7 +319,7 @@ export const App: React.FC = () => {
           if (exists) {
             return prev.map((m) =>
               m.id === incomingMsg.id || m.clientMessageId === incomingMsg.clientMessageId
-                ? incomingMsg
+                ? { ...incomingMsg, status: maxStatus(m.status, incomingMsg.status) }
                 : m
             );
           }
@@ -343,6 +372,18 @@ export const App: React.FC = () => {
       setIsOtherUserTyping(false);
     };
   }, [activeConversation?.id, currentUser?.id]);
+
+  // After a dropped connection comes back, resync the open chat (missed messages + tick states)
+  const wasConnectedRef = useRef(true);
+  useEffect(() => {
+    if (isConnected && !wasConnectedRef.current && currentUser) {
+      loadConversations();
+      if (activeConversation) {
+        api.getMessages(activeConversation.id).then((res) => setMessages([...res.content].reverse())).catch(() => {});
+      }
+    }
+    wasConnectedRef.current = isConnected;
+  }, [isConnected]);
 
   const loadConversations = async () => {
     try {
@@ -550,13 +591,21 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleDeleteConversation = (convId: number) => {
+  const handleDeleteConversation = async (convId: number) => {
+    const snapshot = conversations;
+    // optimistic UI, rolled back if the server refuses so it never "comes back" unexpectedly
     setConversations((prev) => prev.filter((c) => c.id !== convId));
     if (activeConversation?.id === convId) {
       setActiveConversation(null);
       setMessages([]);
     }
-    showToast('Conversation deleted', 'info');
+    try {
+      await api.deleteConversation(convId);
+      showToast('Chat deleted', 'info');
+    } catch (err: any) {
+      setConversations(snapshot);
+      showToast(err.message || 'Could not delete chat', 'error');
+    }
   };
 
   const handleClearConversationById = async (convId: number) => {
@@ -795,6 +844,23 @@ export const App: React.FC = () => {
     wsService.disconnect();
     showToast('Logged out securely', 'info');
   };
+
+  if (bootFailed) {
+    return (
+      <div className="chat-splash" style={{ height: '100dvh', background: 'var(--bg-primary)', padding: 24, textAlign: 'center' }}>
+        <div className="splash-icon-circle">
+          <WifiOff size={34} />
+        </div>
+        <h2 style={{ fontSize: '18px' }}>Can't reach the server</h2>
+        <p style={{ color: 'var(--text-muted)', maxWidth: 320, fontSize: 14, lineHeight: 1.5 }}>
+          The server may be waking up. You are still signed in — nothing was lost.
+        </p>
+        <button className="form-btn-primary" style={{ marginTop: 12, width: 'auto', padding: '10px 28px' }} onClick={() => setBootAttempt((n) => n + 1)}>
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   if (loadingInitial) {
     return (

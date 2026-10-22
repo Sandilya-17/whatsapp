@@ -16,11 +16,16 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
 
     Optional<Message> findByClientMessageId(String clientMessageId);
 
-    @Query("SELECT m FROM Message m WHERE m.conversation = :conversation AND m.id NOT IN (SELECT md.message.id FROM MessageDeletion md WHERE md.user.id = :userId) ORDER BY m.createdAt DESC")
+    @Query("SELECT m FROM Message m WHERE m.conversation = :conversation AND m.createdAt > :clearedAt AND m.id NOT IN (SELECT md.message.id FROM MessageDeletion md WHERE md.user.id = :userId) ORDER BY m.createdAt DESC")
     Page<Message> findVisibleMessagesForUser(
             @Param("conversation") Conversation conversation,
             @Param("userId") Long userId,
+            @Param("clearedAt") java.time.Instant clearedAt,
             Pageable pageable);
+
+    /** Messages addressed to this user (they are a member, someone else sent them) still at SENT. */
+    @Query("SELECT m FROM Message m JOIN m.conversation c JOIN c.members mem WHERE mem.user.id = :userId AND m.sender.id <> :userId AND m.status = com.connectnow.model.MessageStatus.SENT")
+    java.util.List<Message> findUndeliveredForUser(@Param("userId") Long userId);
 
     @Query("SELECT COUNT(m) FROM Message m WHERE m.conversation = :conversation AND m.id > :lastReadId AND m.sender.id != :userId")
     int countUnreadMessages(
@@ -28,8 +33,8 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
             @Param("lastReadId") Long lastReadId,
             @Param("userId") Long userId);
 
-    @org.springframework.data.jpa.repository.Modifying
-    @Query("UPDATE Message m SET m.status = com.connectnow.model.MessageStatus.READ WHERE m.conversation = :conversation AND m.sender.id != :userId")
+    @org.springframework.data.jpa.repository.Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("UPDATE Message m SET m.status = com.connectnow.model.MessageStatus.READ WHERE m.conversation = :conversation AND m.sender.id != :userId AND m.status <> com.connectnow.model.MessageStatus.READ")
     int markMessagesAsReadForUser(
             @Param("conversation") Conversation conversation,
             @Param("userId") Long userId);

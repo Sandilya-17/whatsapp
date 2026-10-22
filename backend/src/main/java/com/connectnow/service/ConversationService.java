@@ -50,6 +50,13 @@ public class ConversationService {
                 ConversationType.DIRECT, currentUser, target);
 
         if (existing.isPresent()) {
+            // Re-opening a chat the user deleted brings it back (history stays cleared)
+            for (ConversationMember m : existing.get().getMembers()) {
+                if (m.getUser().getId().equals(currentUser.getId()) && m.isHidden()) {
+                    m.setHidden(false);
+                    conversationMemberRepository.save(m);
+                }
+            }
             return ConversationDto.fromEntity(existing.get(), currentUser);
         }
 
@@ -71,6 +78,21 @@ public class ConversationService {
         }
 
         return dtos;
+    }
+
+    /** WhatsApp-style "delete chat": removes it from this user's list and clears their history. The other person is unaffected. */
+    @Transactional
+    public void deleteConversationForUser(User currentUser, Long conversationId) {
+        Conversation conv = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new IllegalArgumentException("Conversation not found"));
+
+        ConversationMember member = conversationMemberRepository.findByConversationAndUser(conv, currentUser)
+                .orElseThrow(() -> new SecurityException("You are not a member of this conversation"));
+
+        member.setHidden(true);
+        member.setClearedAt(Instant.now());
+        member.setUnreadCount(0);
+        conversationMemberRepository.save(member);
     }
 
     @Transactional(readOnly = true)
