@@ -1,0 +1,909 @@
+diff -ruN a/frontend/src/App.css b/frontend/src/App.css
+--- a/frontend/src/App.css	2026-10-22 10:22:43.000000000 +0000
++++ b/frontend/src/App.css	1970-01-01 00:00:00.000000000 +0000
+@@ -1,184 +0,0 @@
+-.counter {
+-  font-size: 16px;
+-  padding: 5px 10px;
+-  border-radius: 5px;
+-  color: var(--accent);
+-  background: var(--accent-bg);
+-  border: 2px solid transparent;
+-  transition: border-color 0.3s;
+-  margin-bottom: 24px;
+-
+-  &:hover {
+-    border-color: var(--accent-border);
+-  }
+-  &:focus-visible {
+-    outline: 2px solid var(--accent);
+-    outline-offset: 2px;
+-  }
+-}
+-
+-.hero {
+-  position: relative;
+-
+-  .base,
+-  .framework,
+-  .vite {
+-    inset-inline: 0;
+-    margin: 0 auto;
+-  }
+-
+-  .base {
+-    width: 170px;
+-    position: relative;
+-    z-index: 0;
+-  }
+-
+-  .framework,
+-  .vite {
+-    position: absolute;
+-  }
+-
+-  .framework {
+-    z-index: 1;
+-    top: 34px;
+-    height: 28px;
+-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
+-      scale(1.4);
+-  }
+-
+-  .vite {
+-    z-index: 0;
+-    top: 107px;
+-    height: 26px;
+-    width: auto;
+-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
+-      scale(0.8);
+-  }
+-}
+-
+-#center {
+-  display: flex;
+-  flex-direction: column;
+-  gap: 25px;
+-  place-content: center;
+-  place-items: center;
+-  flex-grow: 1;
+-
+-  @media (max-width: 1024px) {
+-    padding: 32px 20px 24px;
+-    gap: 18px;
+-  }
+-}
+-
+-#next-steps {
+-  display: flex;
+-  border-top: 1px solid var(--border);
+-  text-align: left;
+-
+-  & > div {
+-    flex: 1 1 0;
+-    padding: 32px;
+-    @media (max-width: 1024px) {
+-      padding: 24px 20px;
+-    }
+-  }
+-
+-  .icon {
+-    margin-bottom: 16px;
+-    width: 22px;
+-    height: 22px;
+-  }
+-
+-  @media (max-width: 1024px) {
+-    flex-direction: column;
+-    text-align: center;
+-  }
+-}
+-
+-#docs {
+-  border-right: 1px solid var(--border);
+-
+-  @media (max-width: 1024px) {
+-    border-right: none;
+-    border-bottom: 1px solid var(--border);
+-  }
+-}
+-
+-#next-steps ul {
+-  list-style: none;
+-  padding: 0;
+-  display: flex;
+-  gap: 8px;
+-  margin: 32px 0 0;
+-
+-  .logo {
+-    height: 18px;
+-  }
+-
+-  a {
+-    color: var(--text-h);
+-    font-size: 16px;
+-    border-radius: 6px;
+-    background: var(--social-bg);
+-    display: flex;
+-    padding: 6px 12px;
+-    align-items: center;
+-    gap: 8px;
+-    text-decoration: none;
+-    transition: box-shadow 0.3s;
+-
+-    &:hover {
+-      box-shadow: var(--shadow);
+-    }
+-    .button-icon {
+-      height: 18px;
+-      width: 18px;
+-    }
+-  }
+-
+-  @media (max-width: 1024px) {
+-    margin-top: 20px;
+-    flex-wrap: wrap;
+-    justify-content: center;
+-
+-    li {
+-      flex: 1 1 calc(50% - 8px);
+-    }
+-
+-    a {
+-      width: 100%;
+-      justify-content: center;
+-      box-sizing: border-box;
+-    }
+-  }
+-}
+-
+-#spacer {
+-  height: 88px;
+-  border-top: 1px solid var(--border);
+-  @media (max-width: 1024px) {
+-    height: 48px;
+-  }
+-}
+-
+-.ticks {
+-  position: relative;
+-  width: 100%;
+-
+-  &::before,
+-  &::after {
+-    content: '';
+-    position: absolute;
+-    top: -4.5px;
+-    border: 5px solid transparent;
+-  }
+-
+-  &::before {
+-    left: 0;
+-    border-left-color: var(--border);
+-  }
+-  &::after {
+-    right: 0;
+-    border-right-color: var(--border);
+-  }
+-}
+diff -ruN a/frontend/src/App.tsx b/frontend/src/App.tsx
+--- a/frontend/src/App.tsx	2026-10-22 10:22:43.000000000 +0000
++++ b/frontend/src/App.tsx	2026-10-22 10:26:22.000000000 +0000
+@@ -165,6 +165,9 @@
+     setIsDarkTheme((prev) => {
+       const next = !prev;
+       localStorage.setItem('connectnow_theme', next ? 'dark' : 'light');
++      // Briefly animate colour changes so the switch cross-fades instead of snapping
++      document.documentElement.classList.add('wa-theme-animating');
++      window.setTimeout(() => document.documentElement.classList.remove('wa-theme-animating'), 500);
+       if (next) {
+         document.documentElement.setAttribute('data-theme', 'dark');
+         document.documentElement.classList.remove('light-theme');
+diff -ruN a/frontend/src/components/ChatArea.tsx b/frontend/src/components/ChatArea.tsx
+--- a/frontend/src/components/ChatArea.tsx	2026-10-22 10:22:43.000000000 +0000
++++ b/frontend/src/components/ChatArea.tsx	2026-10-22 10:27:33.000000000 +0000
+@@ -1,5 +1,6 @@
+-import React, { useState, useEffect, useRef } from 'react';
++import React, { useState, useEffect, useRef, Fragment } from 'react';
+ import type { Conversation, Message, User, PollData, SharedLocation } from '../types';
++import { dayLabel, readDraft, startOfDay, writeDraft } from '../utils/chatUi';
+ import { MessageBubble } from './MessageBubble';
+ import { CreatePollModal } from './CreatePollModal';
+ import { ChatSummarizerModal } from './ChatSummarizerModal';
+@@ -24,6 +25,7 @@
+   Send,
+   X,
+   ArrowLeft,
++  ArrowDown,
+   MessageSquare,
+   Mic,
+   Search,
+@@ -157,6 +159,16 @@
+   const [localReactions, setLocalReactions] = useState<Record<number, { emoji: string; count: number; users: string[] }[]>>({});
+ 
+   const messagesEndRef = useRef<HTMLDivElement>(null);
++  // WhatsApp-style scroll + unread state (per open chat)
++  const messagesScrollRef = useRef<HTMLDivElement>(null);
++  const isNearBottomRef = useRef(true);
++  const lastMsgIdRef = useRef<number | null>(null);
++  const draftSkipRef = useRef(false);
++  const [showJumpToBottom, setShowJumpToBottom] = useState(false);
++  const [newBelowCount, setNewBelowCount] = useState(0);
++  const [unreadAnchor, setUnreadAnchor] = useState<
++    { convId: number; msgId: number | null; count: number } | null
++  >(null);
+   const fileInputRef = useRef<HTMLInputElement>(null);
+   const photoInputRef = useRef<HTMLInputElement>(null);
+   const cameraInputRef = useRef<HTMLInputElement>(null);
+@@ -186,10 +198,98 @@
+     };
+   }, [showMoreMenu]);
+ 
++  const isMineMsg = (msg: Message): boolean =>
++    Boolean(
++      currentUser &&
++        (msg.sender?.id === currentUser.id ||
++          String(msg.sender?.id) === String(currentUser.id) ||
++          (currentUser.username &&
++            msg.sender?.username &&
++            currentUser.username.toLowerCase() === msg.sender.username.toLowerCase()))
++    );
++
++  // Switching chats resets per-chat UI state (WhatsApp keeps replies/edits scoped to a chat)
+   useEffect(() => {
+-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
++    isNearBottomRef.current = true;
++    lastMsgIdRef.current = null;
++    setShowJumpToBottom(false);
++    setNewBelowCount(0);
++    setReplyingTo(null);
++    setEditingMessage(null);
++  }, [conversation.id]);
++
++  // Drafts: load this chat's draft on open, persist edits per conversation.
++  // The skip flag stops the old chat's text being saved under the new chat id.
++  useEffect(() => {
++    draftSkipRef.current = true;
++    setInputText(readDraft(conversation.id));
++  }, [conversation.id]);
++
++  useEffect(() => {
++    if (draftSkipRef.current) {
++      draftSkipRef.current = false;
++      return;
++    }
++    if (editingMessage) return;
++    writeDraft(conversation.id, inputText);
++  }, [inputText, conversation.id, editingMessage]);
++
++  // Smart auto-scroll: follow the conversation only when the reader is at the
++  // bottom or they sent the message. Otherwise count arrivals for the jump button.
++  useEffect(() => {
++    const last = messages[messages.length - 1];
++    if (!last) {
++      lastMsgIdRef.current = null;
++      return;
++    }
++    const prevId = lastMsgIdRef.current;
++    lastMsgIdRef.current = last.id;
++    if (prevId === null || isNearBottomRef.current || isMineMsg(last)) {
++      messagesEndRef.current?.scrollIntoView({ behavior: prevId === null ? 'auto' : 'smooth' });
++      setNewBelowCount(0);
++    } else if (last.id !== prevId) {
++      setNewBelowCount((n: number) => n + 1);
++    }
+   }, [messages, isOtherUserTyping]);
+ 
++  // "N unread messages" divider: anchored once per chat, using the unread count
++  // the chat had when it was opened, so it does not drift as new messages arrive.
++  useEffect(() => {
++    if (messages.length === 0) return;
++    if (messages[messages.length - 1].conversationId !== conversation.id) return;
++    if (unreadAnchor && unreadAnchor.convId === conversation.id) return;
++    const count = conversation.unreadCount || 0;
++    let msgId: number | null = null;
++    if (count > 0) {
++      let seen = 0;
++      for (let i = messages.length - 1; i >= 0; i--) {
++        if (!isMineMsg(messages[i])) {
++          seen++;
++          if (seen === count) {
++            msgId = messages[i].id;
++            break;
++          }
++        }
++      }
++    }
++    setUnreadAnchor({ convId: conversation.id, msgId, count });
++  }, [messages, conversation.id, conversation.unreadCount, unreadAnchor]);
++
++  const handleMessagesScroll = () => {
++    const el = messagesScrollRef.current;
++    if (!el) return;
++    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
++    const nearBottom = distanceFromBottom < 140;
++    isNearBottomRef.current = nearBottom;
++    setShowJumpToBottom(!nearBottom);
++    if (nearBottom) setNewBelowCount(0);
++  };
++
++  const jumpToBottom = () => {
++    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
++    setNewBelowCount(0);
++  };
++
+   // Voice recording timer
+   useEffect(() => {
+     if (isRecordingVoice) {
+@@ -977,7 +1077,7 @@
+       )}
+ 
+       {/* Message List */}
+-      <div className="chat-messages">
++      <div className="chat-messages" ref={messagesScrollRef} onScroll={handleMessagesScroll}>
+         {filteredMessages.length === 0 ? (
+           <div className="chat-splash">
+             <div className="splash-icon-circle">
+@@ -993,22 +1093,35 @@
+             </p>
+           </div>
+         ) : (
+-          filteredMessages.map((msg) => {
++          filteredMessages.map((msg: Message, idx: number) => {
+             const isMsgStarred = starredIds.includes(msg.id);
+             const isMsgPinned = localPinnedId === msg.id;
+             const msgReactions = localReactions[msg.id] || msg.reactions;
+-            const isSent = Boolean(
+-              currentUser && (
+-                msg.sender?.id === currentUser.id ||
+-                String(msg.sender?.id) === String(currentUser.id) ||
+-                (currentUser.username && msg.sender?.username && currentUser.username.toLowerCase() === msg.sender.username.toLowerCase())
+-              )
+-            );
++            const isSent = isMineMsg(msg);
++            const prevMsg = idx > 0 ? filteredMessages[idx - 1] : null;
++            const showDaySeparator =
++              Boolean(msg.createdAt) &&
++              (!prevMsg?.createdAt ||
++                startOfDay(new Date(prevMsg.createdAt)) !== startOfDay(new Date(msg.createdAt)));
++            const showUnreadDivider =
++              unreadAnchor?.convId === conversation.id && unreadAnchor.msgId === msg.id;
+ 
+             return (
++              <Fragment key={msg.id}>
++              {showDaySeparator && (
++                <div className="day-separator" role="separator" aria-label={dayLabel(msg.createdAt)}>
++                  <span>{dayLabel(msg.createdAt)}</span>
++                </div>
++              )}
++              {showUnreadDivider && (
++                <div className="unread-divider" role="separator">
++                  <span>
++                    {unreadAnchor?.count ?? 0} unread message{(unreadAnchor?.count ?? 0) === 1 ? '' : 's'}
++                  </span>
++                </div>
++              )}
+               <div
+                 id={`msg-${msg.id}`}
+-                key={msg.id}
+                 style={{
+                   display: 'flex',
+                   width: '100%',
+@@ -1039,12 +1152,27 @@
+                   onVotePoll={onVotePoll}
+                 />
+               </div>
++              </Fragment>
+             );
+           })
+         )}
+         <div ref={messagesEndRef} />
+       </div>
+ 
++      {/* Jump to latest (WhatsApp-style floating button with new-message count) */}
++      {showJumpToBottom && (
++        <button
++          type="button"
++          className="wa-jump-bottom"
++          onClick={jumpToBottom}
++          title="Jump to latest messages"
++          aria-label="Jump to latest messages"
++        >
++          {newBelowCount > 0 && <span className="wa-jump-count">{newBelowCount}</span>}
++          <ArrowDown size={20} />
++        </button>
++      )}
++
+       {/* Typing notification */}
+       {isOtherUserTyping && (
+         <div className="typing-indicator-bar">
+diff -ruN a/frontend/src/components/Sidebar.tsx b/frontend/src/components/Sidebar.tsx
+--- a/frontend/src/components/Sidebar.tsx	2026-10-22 10:22:43.000000000 +0000
++++ b/frontend/src/components/Sidebar.tsx	2026-10-22 10:26:17.000000000 +0000
+@@ -1,6 +1,7 @@
+ import React, { useState, useRef, useEffect } from 'react';
+ import type { User, Conversation, ContactRequest, CallRecord, Message, StatusStory } from '../types';
+ import { getStoredStories, subscribeToStatusUpdates, startStatusSync } from '../utils/statusStorage';
++import { readDraft } from '../utils/chatUi';
+ import {
+   getStoredCallRecords,
+   deleteCallRecord,
+@@ -882,14 +883,21 @@
+                         </div>
+                         <div className="conv-bottom-row">
+                           <span className="conv-preview" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+-                            {conv.unreadCount > 0 ? (
+-                              <Check size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+-                            ) : (
+-                              <CheckCheck size={14} style={{ color: '#53bdeb', flexShrink: 0 }} />
+-                            )}
+-                            <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+-                              {conv.lastMessagePreview || 'Started conversation'}
+-                            </span>
++                            {/* Drafts show first, as in WhatsApp. Ticks are not shown here because the
++                                list payload does not say who sent the last message, so they would be wrong. */}
++                            {(() => {
++                              const draft = readDraft(conv.id);
++                              return draft ? (
++                                <span className="conv-draft" style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
++                                  <span className="conv-draft-label">Draft: </span>
++                                  {draft.replace(/\s+/g, ' ')}
++                                </span>
++                              ) : (
++                                <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
++                                  {conv.lastMessagePreview || 'Started conversation'}
++                                </span>
++                              );
++                            })()}
+                           </span>
+                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                             {(conv.unreadCount > 0 || isMarkedUnread) && (
+diff -ruN a/frontend/src/index.css b/frontend/src/index.css
+--- a/frontend/src/index.css	2026-10-22 10:22:43.000000000 +0000
++++ b/frontend/src/index.css	2026-10-22 10:39:40.000000000 +0000
+@@ -3,56 +3,17 @@
+ /* ===== Design Tokens ===== */
+ :root {
+   /* Dark theme (default) */
+-  --bg-primary: #0a0918;
+-  --bg-secondary: #110f26;
+-  --bg-tertiary: #1a1838;
+-  --bg-hover: #25224a;
+-  --bg-glass: rgba(17, 15, 38, 0.85);
+-  --bg-elevated: rgba(26, 24, 56, 0.95);
+-  --bg-surface: #0f0e22;
+-
+-  --accent-primary: #6c5cff;
+-  --accent-secondary: #5546e8;
+-  --accent-tertiary: #9b8cff;
+-  --accent-glow: rgba(108, 92, 255, 0.2);
+-  --accent-gradient: linear-gradient(135deg, #5546e8 0%, #6c5cff 50%, #9b8cff 100%);
+-  --accent-gradient-hover: linear-gradient(135deg, #6c5cff 0%, #9b8cff 100%);
+-
+-  --bubble-sent: linear-gradient(135deg, #5546e8 0%, #6c5cff 60%, #9b8cff 100%);
+-  --bubble-received: rgba(26, 24, 56, 0.9);
+-
+-  --text-primary: #f1f5f9;
+-  --text-secondary: #94a3b8;
+-  --text-muted: #64748b;
+-  --text-inverse: #0f172a;
+-
+-  --border-subtle: rgba(255, 255, 255, 0.06);
+-  --border-default: rgba(255, 255, 255, 0.1);
+-  --border-focus: rgba(108, 92, 255, 0.5);
+ 
+-  --status-online: #34d399;
+-  --status-offline: #475569;
++
++
++
++
+   --status-away: #f59e0b;
+   --status-busy: #ef4444;
+ 
+-  --danger: #ef4444;
+-  --danger-bg: rgba(239, 68, 68, 0.1);
+-  --warning: #f59e0b;
+-  --info: #3b82f6;
+-  --success: #34d399;
+-
+-  --radius-xs: 6px;
+-  --radius-sm: 8px;
+-  --radius-md: 12px;
+-  --radius-lg: 16px;
+-  --radius-xl: 20px;
++
+   --radius-full: 9999px;
+ 
+-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+-  --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+-  --shadow-lg: 0 12px 32px rgba(0,0,0,0.5);
+-  --shadow-xl: 0 20px 48px rgba(0,0,0,0.6);
+-  --shadow-glow: 0 0 24px rgba(108, 92, 255, 0.25);
+   --shadow-glow-strong: 0 0 40px rgba(108, 92, 255, 0.35);
+ 
+   --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+@@ -64,29 +25,11 @@
+ 
+ /* ===== Light Theme ===== */
+ [data-theme="light"], :root[data-theme="light"], body.light-theme, html.light-theme, .light-theme {
+-  --bg-primary: #f0f2f5;
+-  --bg-secondary: #ffffff;
+-  --bg-tertiary: #f0f2f5;
+-  --bg-hover: #e2e8f0;
+-  --bg-glass: rgba(255, 255, 255, 0.9);
+-  --bg-elevated: rgba(255, 255, 255, 0.98);
+-  --bg-surface: #ffffff;
+ 
+   --bubble-sent: linear-gradient(135deg, #5546e8 0%, #6c5cff 100%);
+-  --bubble-received: #ffffff;
+ 
+-  --text-primary: #111b21;
+-  --text-secondary: #3b4a54;
+-  --text-muted: #667781;
+-  --text-inverse: #f8fafc;
+-
+-  --border-subtle: rgba(0, 0, 0, 0.08);
+-  --border-default: rgba(0, 0, 0, 0.12);
+-
+-  --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+-  --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+-  --shadow-lg: 0 12px 32px rgba(0,0,0,0.12);
+-  --shadow-xl: 0 20px 48px rgba(0,0,0,0.15);
++
++
+ }
+ 
+ /* ===== Global Reset ===== */
+@@ -1912,7 +1855,7 @@
+   z-index: 9999;
+   display: flex;
+   align-items: center;
+-  justifyContent: space-between;
++  justify-content: space-between;
+   padding: 0 10px;
+   pointer-events: none;
+   box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+@@ -1923,7 +1866,7 @@
+   background: var(--bg-elevated);
+   display: flex;
+   align-items: center;
+-  justifyContent: space-between;
++  justify-content: space-between;
+   padding: 0 24px;
+   font-size: 12px;
+   font-weight: 600;
+diff -ruN a/frontend/src/main.tsx b/frontend/src/main.tsx
+--- a/frontend/src/main.tsx	2026-10-22 10:22:43.000000000 +0000
++++ b/frontend/src/main.tsx	2026-10-22 10:26:49.000000000 +0000
+@@ -8,6 +8,7 @@
+ import './index.css'
+ import './ui-refresh.css'
+ import './nova.css'
++import './wa-motion.css'
+ import App from './App.tsx'
+ 
+ createRoot(document.getElementById('root')!).render(
+diff -ruN a/frontend/src/ui-refresh.css b/frontend/src/ui-refresh.css
+--- a/frontend/src/ui-refresh.css	2026-10-22 10:22:43.000000000 +0000
++++ b/frontend/src/ui-refresh.css	2026-10-22 10:33:22.000000000 +0000
+@@ -143,20 +143,6 @@
+ .attach-plus { transition: transform 0.2s ease; }
+ .attach-plus.open { transform: rotate(45deg); }
+ 
+-/* ---------- 3. Visual polish ---------- */
+-:root {
+-  --bg-primary: #070b14;
+-  --bg-secondary: #0e1420;
+-  --bg-surface: #0b101a;
+-  --bg-tertiary: #18212f;
+-  --accent-primary: #12b886;
+-  --accent-secondary: #0a9a6f;
+-  --accent-gradient: linear-gradient(135deg, #0a9a6f 0%, #12b886 55%, #3ddbb0 100%);
+-  --bubble-sent: linear-gradient(145deg, #0b8f68 0%, #12b886 100%);
+-  --bubble-received: #172131;
+-  --radius-lg: 18px;
+-}
+-
+ html { -webkit-tap-highlight-color: transparent; }
+ body { text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
+ * { scrollbar-width: thin; scrollbar-color: rgba(148,163,184,0.25) transparent; }
+diff -ruN a/frontend/src/utils/chatUi.ts b/frontend/src/utils/chatUi.ts
+--- a/frontend/src/utils/chatUi.ts	1970-01-01 00:00:00.000000000 +0000
++++ b/frontend/src/utils/chatUi.ts	2026-10-22 10:25:42.000000000 +0000
+@@ -0,0 +1,41 @@
++// Shared helpers for WhatsApp-style chat UI: day labels and per-chat drafts.
++// Drafts are per-viewer conveniences, so they live in localStorage and every
++// access is wrapped so private windows / blocked storage never break the chat.
++
++const DAY_MS = 24 * 60 * 60 * 1000;
++
++export const startOfDay = (d: Date): number =>
++  new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
++
++/** "Today", "Yesterday", a weekday within the last week, otherwise a full date. */
++export const dayLabel = (iso: string): string => {
++  const d = new Date(iso);
++  if (Number.isNaN(d.getTime())) return '';
++  const diff = Math.round((startOfDay(new Date()) - startOfDay(d)) / DAY_MS);
++  if (diff === 0) return 'Today';
++  if (diff === 1) return 'Yesterday';
++  if (diff > 1 && diff < 7) return d.toLocaleDateString([], { weekday: 'long' });
++  return d.toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' });
++};
++
++const draftKey = (conversationId: number) => `cn_draft_${conversationId}`;
++
++export const readDraft = (conversationId: number): string => {
++  try {
++    return localStorage.getItem(draftKey(conversationId)) || '';
++  } catch {
++    return '';
++  }
++};
++
++export const writeDraft = (conversationId: number, text: string): void => {
++  try {
++    if (text.trim()) {
++      localStorage.setItem(draftKey(conversationId), text);
++    } else {
++      localStorage.removeItem(draftKey(conversationId));
++    }
++  } catch {
++    /* storage unavailable: drafts are a convenience, not required */
++  }
++};
+diff -ruN a/frontend/src/wa-motion.css b/frontend/src/wa-motion.css
+--- a/frontend/src/wa-motion.css	1970-01-01 00:00:00.000000000 +0000
++++ b/frontend/src/wa-motion.css	2026-10-22 10:39:49.000000000 +0000
+@@ -0,0 +1,250 @@
++/* ==========================================================================
++   WhatsApp-parity motion + polish layer
++   Loaded last (main.tsx) so it refines the existing theme without rewriting it.
++   Rules:
++   - Entrance animations use `backwards` fill, so no transform lingers after
++     the animation ends (a lingering transform would trap position:fixed menus).
++   - Everything is disabled under prefers-reduced-motion.
++   ========================================================================== */
++
++:root {
++  --wa-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
++  --wa-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
++}
++
++/* ---------- Keyframes ---------- */
++@keyframes wa-msg-in {
++  from { opacity: 0; transform: translateY(8px) scale(0.97); }
++  to   { opacity: 1; transform: none; }
++}
++@keyframes wa-chip-in {
++  from { opacity: 0; transform: scale(0.85); }
++  to   { opacity: 1; transform: none; }
++}
++@keyframes wa-fade-in {
++  from { opacity: 0; }
++  to   { opacity: 1; }
++}
++@keyframes wa-fade-up {
++  from { opacity: 0; transform: translateY(6px); }
++  to   { opacity: 1; transform: none; }
++}
++@keyframes wa-jump-in {
++  from { opacity: 0; transform: translateY(12px) scale(0.7); }
++  to   { opacity: 1; transform: none; }
++}
++@keyframes wa-count-pop {
++  0%   { transform: scale(0); }
++  60%  { transform: scale(1.25); }
++  100% { transform: scale(1); }
++}
++@keyframes wa-list-in {
++  from { opacity: 0; transform: translateX(-6px); }
++  to   { opacity: 1; transform: none; }
++}
++@keyframes wa-bar-in {
++  from { transform: scaleY(0); }
++  to   { transform: scaleY(1); }
++}
++
++/* ---------- Messages ---------- */
++.message-row {
++  animation: wa-msg-in 0.26s var(--wa-ease) backwards;
++}
++.message-row.sent {
++  transform-origin: 100% 100%;
++}
++
++/* Date separator chip, sticky while scrolling like WhatsApp */
++.day-separator {
++  position: sticky;
++  top: 6px;
++  z-index: 2;
++  display: flex;
++  justify-content: center;
++  margin: 6px 0 2px;
++  pointer-events: none;
++}
++.day-separator span {
++  padding: 5px 12px;
++  border-radius: 999px;
++  font-size: 12.5px;
++  font-weight: 600;
++  letter-spacing: 0.01em;
++  color: var(--text-secondary, #8696a0);
++  background: color-mix(in srgb, var(--bg-secondary, #1f2c33) 85%, transparent);
++  backdrop-filter: blur(10px) saturate(1.4);
++  -webkit-backdrop-filter: blur(10px) saturate(1.4);
++  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
++  animation: wa-chip-in 0.3s var(--wa-spring) backwards;
++}
++
++/* "N unread messages" divider */
++.unread-divider {
++  display: flex;
++  align-items: center;
++  gap: 12px;
++  margin: 10px 0;
++  color: var(--accent-primary, #25d366);
++  font-size: 12px;
++  font-weight: 700;
++  letter-spacing: 0.03em;
++  text-transform: uppercase;
++  animation: wa-fade-in 0.4s var(--wa-ease) backwards;
++}
++.unread-divider::before,
++.unread-divider::after {
++  content: "";
++  flex: 1;
++  height: 1px;
++  opacity: 0.45;
++}
++.unread-divider::before { background: linear-gradient(90deg, transparent, currentColor); }
++.unread-divider::after  { background: linear-gradient(90deg, currentColor, transparent); }
++.unread-divider span {
++  padding: 4px 12px;
++  border-radius: 999px;
++  background: color-mix(in srgb, var(--accent-primary, #25d366) 14%, transparent);
++}
++
++/* Floating jump-to-latest button */
++.wa-jump-bottom {
++  position: absolute;
++  right: 18px;
++  bottom: 104px;
++  z-index: 20;
++  width: 44px;
++  height: 44px;
++  border: none;
++  border-radius: 50%;
++  display: grid;
++  place-items: center;
++  cursor: pointer;
++  color: var(--text-primary, #e9edef);
++  background: var(--bg-secondary, #202c33);
++  box-shadow: 0 8px 22px -6px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.06);
++  animation: wa-jump-in 0.35s var(--wa-spring) backwards;
++  transition: transform 0.18s var(--wa-spring), background-color 0.2s ease;
++}
++.wa-jump-bottom:hover { transform: translateY(-2px) scale(1.05); }
++.wa-jump-bottom:active { transform: scale(0.92); }
++.wa-jump-bottom:focus-visible { outline: 2px solid var(--accent-primary, #25d366); outline-offset: 3px; }
++.wa-jump-count {
++  position: absolute;
++  top: -6px;
++  right: -4px;
++  min-width: 20px;
++  height: 20px;
++  padding: 0 6px;
++  border-radius: 999px;
++  display: grid;
++  place-items: center;
++  font-size: 11px;
++  font-weight: 700;
++  color: #fff;
++  background: var(--accent-primary, #25d366);
++  box-shadow: 0 0 0 2px var(--bg-primary, #111b21);
++  animation: wa-count-pop 0.35s var(--wa-spring);
++}
++
++.typing-indicator-bar { animation: wa-fade-up 0.25s var(--wa-ease) backwards; }
++.reply-banner { animation: wa-fade-up 0.22s var(--wa-ease) backwards; }
++
++/* ---------- Pressable controls ---------- */
++.send-btn {
++  transition: transform 0.2s var(--wa-spring), background-color 0.2s ease, box-shadow 0.2s ease;
++}
++.send-btn:not(:disabled):hover { transform: scale(1.06); }
++.send-btn:not(:disabled):active { transform: scale(0.86) rotate(-8deg); }
++
++.icon-btn {
++  transition: transform 0.15s var(--wa-ease), background-color 0.2s ease, color 0.2s ease;
++}
++.icon-btn:active { transform: scale(0.9); }
++
++.rail-btn {
++  transition: transform 0.18s var(--wa-ease), background-color 0.2s ease, color 0.2s ease;
++}
++.rail-btn:active { transform: scale(0.92); }
++
++/* ---------- Chat list ---------- */
++.conv-item {
++  position: relative;
++  transition: background-color 0.2s var(--wa-ease), transform 0.2s var(--wa-ease);
++}
++.conv-item:active { transform: scale(0.985); }
++.conv-item.active::before {
++  content: "";
++  position: absolute;
++  left: 0;
++  top: 12%;
++  bottom: 12%;
++  width: 3px;
++  border-radius: 0 3px 3px 0;
++  background: var(--accent-primary, #25d366);
++  animation: wa-bar-in 0.28s var(--wa-spring) backwards;
++}
++.conversation-list > .conv-item:nth-child(-n + 12) {
++  animation: wa-list-in 0.34s var(--wa-ease) backwards;
++}
++.conversation-list > .conv-item:nth-child(2) { animation-delay: 30ms; }
++.conversation-list > .conv-item:nth-child(3) { animation-delay: 60ms; }
++.conversation-list > .conv-item:nth-child(4) { animation-delay: 90ms; }
++.conversation-list > .conv-item:nth-child(5) { animation-delay: 120ms; }
++.conversation-list > .conv-item:nth-child(6) { animation-delay: 150ms; }
++.conversation-list > .conv-item:nth-child(7) { animation-delay: 180ms; }
++.conversation-list > .conv-item:nth-child(8) { animation-delay: 210ms; }
++
++/* Draft preview in the chat list, same green label as WhatsApp */
++.conv-draft-label {
++  color: #25d366;
++  font-weight: 600;
++}
++
++/* ---------- Theme switch cross-fade (class added for 500ms by App) ---------- */
++html.wa-theme-animating,
++html.wa-theme-animating *,
++html.wa-theme-animating *::before,
++html.wa-theme-animating *::after {
++  transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, fill 0.4s ease !important;
++}
++
++/* ---------- Reduced motion ---------- */
++@media (prefers-reduced-motion: reduce) {
++  .message-row,
++  .day-separator span,
++  .unread-divider,
++  .wa-jump-bottom,
++  .wa-jump-count,
++  .typing-indicator-bar,
++  .reply-banner,
++  .conv-item.active::before,
++  .conversation-list > .conv-item {
++    animation: none !important;
++  }
++  .send-btn:not(:disabled):hover,
++  .send-btn:not(:disabled):active,
++  .wa-jump-bottom:hover,
++  .wa-jump-bottom:active,
++  .icon-btn:active,
++  .rail-btn:active,
++  .conv-item:active {
++    transform: none !important;
++  }
++}
++
++/* ---------- Small screens ---------- */
++@media (max-width: 768px) {
++  .wa-jump-bottom { right: 14px; bottom: 96px; }
++}
++
++/* ---------- Search field: one border (wrapper), not two ----------
++   nova.css paints the border/background on `.sidebar-search-box input`,
++   which also matches the inner <input> inside `.search-input-wrapper`. */
++.search-input-wrapper input,
++.sidebar-search-box .search-input-wrapper input {
++  border: none;
++  background: transparent;
++  box-shadow: none;
++  outline: none;
++}

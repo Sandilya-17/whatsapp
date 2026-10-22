@@ -165,6 +165,9 @@ export const App: React.FC = () => {
     setIsDarkTheme((prev) => {
       const next = !prev;
       localStorage.setItem('connectnow_theme', next ? 'dark' : 'light');
+      // Briefly animate colour changes so the switch cross-fades instead of snapping
+      document.documentElement.classList.add('wa-theme-animating');
+      window.setTimeout(() => document.documentElement.classList.remove('wa-theme-animating'), 500);
       if (next) {
         document.documentElement.setAttribute('data-theme', 'dark');
         document.documentElement.classList.remove('light-theme');
