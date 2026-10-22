@@ -11,6 +11,7 @@ public class CallSignalDto {
     private Long conversationId;
     private Object sdp;
     private Object candidate;
+    private java.util.List<Object> candidates;
 
     public CallSignalDto() {}
 
@@ -92,5 +93,13 @@ public class CallSignalDto {
 
     public void setCandidate(Object candidate) {
         this.candidate = candidate;
+    }
+
+    public java.util.List<Object> getCandidates() {
+        return candidates;
+    }
+
+    public void setCandidates(java.util.List<Object> candidates) {
+        this.candidates = candidates;
     }
 }

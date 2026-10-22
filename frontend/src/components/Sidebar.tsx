@@ -44,6 +44,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { ChatLockModal } from './ChatLockModal';
+import { api } from '../services/api';
 
 interface SidebarProps {
   currentUser: User;
@@ -245,14 +246,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const toggleMuteConv = (convId: number) => {
-    setMutedConvIds((prev) => {
-      const next = prev.includes(convId) ? prev.filter((id) => id !== convId) : [...prev, convId];
-      try {
-        localStorage.setItem('cn_muted_conv_ids', JSON.stringify(next));
-      } catch {}
-      onNotify?.(next.includes(convId) ? 'Notifications muted' : 'Notifications unmuted', 'info');
-      return next;
-    });
+    const next = mutedConvIds.includes(convId) ? mutedConvIds.filter((id) => id !== convId) : [...mutedConvIds, convId];
+    setMutedConvIds(next);
+    try {
+      localStorage.setItem('cn_muted_conv_ids', JSON.stringify(next));
+    } catch {}
+    // tell the server too, so push notifications for this chat are silenced as well
+    api.setConversationMuted(convId, next.includes(convId)).catch(() => {});
+    onNotify?.(next.includes(convId) ? 'Notifications muted' : 'Notifications unmuted', 'info');
     setOpenMenuConvId(null);
   };
 

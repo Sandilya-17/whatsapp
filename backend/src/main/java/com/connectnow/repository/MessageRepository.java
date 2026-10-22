@@ -38,4 +38,11 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
     int markMessagesAsReadForUser(
             @Param("conversation") Conversation conversation,
             @Param("userId") Long userId);
+
+    /** Messages in a conversation that are not READ yet (used for group read-receipt calculation). */
+    @Query("SELECT m FROM Message m WHERE m.conversation = :conversation AND m.status <> com.connectnow.model.MessageStatus.READ")
+    java.util.List<Message> findNotReadInConversation(@Param("conversation") Conversation conversation);
+
+    @Query("SELECT COALESCE(MAX(m.id), 0) FROM Message m WHERE m.conversation = :conversation")
+    Long findMaxIdInConversation(@Param("conversation") Conversation conversation);
 }

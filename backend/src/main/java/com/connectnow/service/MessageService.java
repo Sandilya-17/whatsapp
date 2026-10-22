@@ -9,7 +9,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.messaging.simp.user.SimpUserRegistry;
+import com.connectnow.push.PushService;
+import com.connectnow.push.SessionTracker;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.stereotype.Service;
@@ -30,7 +31,8 @@ public class MessageService {
     private final MessageDeletionRepository messageDeletionRepository;
     private final BlockedUserRepository blockedUserRepository;
     private final SimpMessagingTemplate messagingTemplate;
-    private final SimpUserRegistry userRegistry;
+    private final SessionTracker sessionTracker;
+    private final PushService pushService;
 
     public MessageService(
             MessageRepository messageRepository,
@@ -39,14 +41,16 @@ public class MessageService {
             MessageDeletionRepository messageDeletionRepository,
             BlockedUserRepository blockedUserRepository,
             SimpMessagingTemplate messagingTemplate,
-            SimpUserRegistry userRegistry) {
+            SessionTracker sessionTracker,
+            PushService pushService) {
         this.messageRepository = messageRepository;
         this.conversationRepository = conversationRepository;
         this.conversationMemberRepository = conversationMemberRepository;
         this.messageDeletionRepository = messageDeletionRepository;
         this.blockedUserRepository = blockedUserRepository;
         this.messagingTemplate = messagingTemplate;
-        this.userRegistry = userRegistry;
+        this.sessionTracker = sessionTracker;
+        this.pushService = pushService;
     }
 
     /** Runs the task once the surrounding transaction has committed (so clients never react to rows that aren't visible yet). */
@@ -64,11 +68,7 @@ public class MessageService {
     }
 
     private boolean isOnline(User user) {
-        try {
-            return userRegistry.getUser(user.getUsername()) != null;
-        } catch (Exception e) {
-            return false;
-        }
+        return sessionTracker.isOnline(user.getUsername());
     }
 
     private void pushReceipt(User target, MessageStatusUpdateDto dto) {
@@ -76,6 +76,39 @@ public class MessageService {
             messagingTemplate.convertAndSendToUser(target.getUsername(), "/queue/receipts", dto);
         } catch (Exception ignored) {
             // offline user - they'll get the correct status from the DB when they next load the chat
+        }
+    }
+
+    private String pushPreview(MessageDto dto) {
+        MessageType t = dto.getMessageType();
+        if (t == null || t == MessageType.TEXT || t == MessageType.SYSTEM) {
+            String c = dto.getContent() == null ? "" : dto.getContent();
+            return c.length() > 140 ? c.substring(0, 137) + "..." : c;
+        }
+        switch (t) {
+            case IMAGE: return "\uD83D\uDCF7 Photo";
+            case VIDEO: return "\uD83C\uDFA5 Video";
+            case VOICE: return "\uD83C\uDFA4 Voice message";
+            default: return "\uD83D\uDCCE " + (dto.getMediaFileName() != null ? dto.getMediaFileName() : "File");
+        }
+    }
+
+    private void sendPushNotifications(User sender, String groupTitle, Long conversationId,
+                                       List<ConversationMember> members, MessageDto dto) {
+        String senderName = sender.getDisplayName() != null ? sender.getDisplayName() : sender.getUsername();
+        String body = pushPreview(dto);
+        Instant now = Instant.now();
+        for (ConversationMember member : members) {
+            User recipient = member.getUser();
+            if (recipient.getId().equals(sender.getId())) continue;
+            if (member.getMutedUntil() != null && member.getMutedUntil().isAfter(now)) continue;
+            if (sessionTracker.isForeground(recipient.getUsername())) continue;
+
+            String title = groupTitle != null ? groupTitle : senderName;
+            String text = groupTitle != null ? senderName + ": " + body : body;
+            long unread = conversationMemberRepository.sumUnreadForUser(recipient.getId());
+            pushService.sendToUser(recipient,
+                    pushService.messagePayload(title, text, conversationId, unread, null), 86400);
         }
     }
 
@@ -181,6 +214,14 @@ public class MessageService {
                     // Ignore offline user dispatch failure
                 }
             }
+
+            // 3. Web Push so people are alerted even when the app is closed (skipped when they are looking at it or muted)
+            try {
+                sendPushNotifications(sender, conversation.getType() == ConversationType.GROUP ? conversation.getTitle() : null,
+                        conversationId, members, dto);
+            } catch (Exception ignored) {
+                // notifications are best-effort
+            }
         });
 
         return dto;
@@ -209,22 +250,65 @@ public class MessageService {
                 .orElseThrow(() -> new SecurityException("You are not a member of this conversation"));
 
         member.setUnreadCount(0);
+        Long maxId = messageRepository.findMaxIdInConversation(conversation);
+        if (maxId != null && maxId > 0) {
+            member.setLastReadMessageId(maxId);
+        }
         conversationMemberRepository.save(member);
 
-        // Update all incoming messages in DB to READ
+        // Like WhatsApp: if I turned read receipts off, nobody gets blue ticks for what I read
+        if (!currentUser.getPrivacySettings().isReadReceiptsEnabled()) {
+            return;
+        }
+
+        List<ConversationMember> allMembers = conversationMemberRepository.findByConversation(conversation);
+        List<User> others = allMembers.stream()
+                .map(ConversationMember::getUser)
+                .filter(u -> !u.getId().equals(currentUser.getId()))
+                .toList();
+
+        if (conversation.getType() == ConversationType.GROUP) {
+            // Blue ticks in a group only once EVERY other member has read the message
+            List<Message> notRead = messageRepository.findNotReadInConversation(conversation);
+            List<MessageStatusUpdateDto> updates = new java.util.ArrayList<>();
+            List<User> senders = new java.util.ArrayList<>();
+            for (Message m : notRead) {
+                if (m.getSender().getId().equals(currentUser.getId())) continue;
+                boolean everyoneRead = true;
+                for (ConversationMember cm : allMembers) {
+                    Long uid = cm.getUser().getId();
+                    if (uid.equals(m.getSender().getId())) continue;
+                    // members who left / read receipts disabled still count via their own lastRead id
+                    Long last = cm.getLastReadMessageId();
+                    if (last == null || last < m.getId()) {
+                        everyoneRead = false;
+                        break;
+                    }
+                }
+                if (everyoneRead) {
+                    m.setStatus(MessageStatus.READ);
+                    messageRepository.save(m);
+                    updates.add(new MessageStatusUpdateDto(m.getId(), conversationId, MessageStatus.READ, currentUser.getId()));
+                    senders.add(m.getSender());
+                }
+            }
+            afterCommit(() -> {
+                for (int i = 0; i < updates.size(); i++) {
+                    pushReceipt(senders.get(i), updates.get(i));
+                }
+            });
+            return;
+        }
+
+        // Direct chat: update all incoming messages in DB to READ
         messageRepository.markMessagesAsReadForUser(conversation, currentUser.getId());
 
-        // Broadcast READ status (conversation channel + each other member's personal queue)
         MessageStatusUpdateDto update = new MessageStatusUpdateDto(
                 null,
                 conversationId,
                 MessageStatus.READ,
                 currentUser.getId()
         );
-        List<User> others = conversationMemberRepository.findByConversation(conversation).stream()
-                .map(ConversationMember::getUser)
-                .filter(u -> !u.getId().equals(currentUser.getId()))
-                .toList();
         afterCommit(() -> {
             messagingTemplate.convertAndSend("/topic/conversations/" + conversationId + "/receipts", update);
             for (User other : others) {

@@ -73,7 +73,7 @@ export interface Message {
   clientMessageId?: string;
   content: string;
   messageType: 'TEXT' | 'IMAGE' | 'VIDEO' | 'FILE' | 'VOICE' | 'SYSTEM' | 'POLL' | 'LOCATION';
-  status: 'SENT' | 'DELIVERED' | 'READ';
+  status: 'PENDING' | 'SENT' | 'DELIVERED' | 'READ';
   mediaUrl?: string;
   mediaFileName?: string;
   mediaFileSize?: number;
@@ -173,6 +173,7 @@ export interface CallSignal {
   conversationId?: number;
   sdp?: any;
   candidate?: any;
+  candidates?: any[];
 }
 
 export interface StatusStory {

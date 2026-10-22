@@ -218,6 +218,15 @@ export const VideoCallModal: React.FC<VideoCallModalProps> = ({
           setStatus('connecting');
           await pc.setRemoteDescription(new RTCSessionDescription(incomingOffer.sdp));
 
+          // ICE candidates the caller sent while this phone was still ringing / the app was closed
+          for (const cand of incomingOffer.candidates || []) {
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(cand));
+            } catch {
+              // ignore stale candidate
+            }
+          }
+
           // Drain queued ICE candidates
           while (pendingCandidatesRef.current.length > 0) {
             const cand = pendingCandidatesRef.current.shift();

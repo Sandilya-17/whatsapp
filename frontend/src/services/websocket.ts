@@ -3,55 +3,65 @@ import type { IMessage, StompSubscription } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { getAuthToken, API_ORIGIN } from './api';
 
+interface Registration {
+  destination: string;
+  callback: (message: any) => void;
+  sub?: StompSubscription;
+}
+
 class WebSocketService {
   private client: Client | null = null;
   private isConnected = false;
-  private subscriptions: Map<string, StompSubscription> = new Map();
-  private pendingSubscriptions: Array<{ destination: string; callback: (message: any) => void }> = [];
+  // Every subscription is remembered, so it is automatically restored after a reconnect
+  private registry: Map<number, Registration> = new Map();
+  private nextId = 1;
   private connectionCallbacks: Array<(connected: boolean) => void> = [];
 
   public connect(onConnected?: () => void) {
     const token = getAuthToken();
     if (!token) return;
 
-    if (this.client && this.isConnected) {
-      if (onConnected) onConnected();
+    if (this.client) {
+      if (this.isConnected && onConnected) onConnected();
       return;
     }
 
-    // Determine WS / SockJS endpoint
     const socketFactory = () => new SockJS(`${API_ORIGIN}/ws`);
 
     this.client = new Client({
       webSocketFactory: socketFactory,
       connectHeaders: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${getAuthToken() || token}`,
+      },
+      // refresh the token on every (re)connect attempt
+      beforeConnect: () => {
+        const fresh = getAuthToken();
+        if (fresh && this.client) {
+          this.client.connectHeaders = { Authorization: `Bearer ${fresh}` };
+        }
       },
       debug: () => {},
-      reconnectDelay: 3000,
+      reconnectDelay: 2000,
       heartbeatIncoming: 4000,
       heartbeatOutgoing: 4000,
     });
 
     this.client.onConnect = () => {
       this.isConnected = true;
+      // (Re)create every subscription on the fresh connection
+      this.registry.forEach((reg) => this.activate(reg));
       this.notifyConnectionState(true);
-
-      // Process any pending subscriptions
-      this.pendingSubscriptions.forEach(({ destination, callback }) => {
-        this.doSubscribe(destination, callback);
-      });
-      this.pendingSubscriptions = [];
-
-      if (onConnected) {
-        onConnected();
-      }
+      if (onConnected) onConnected();
     };
 
-    this.client.onDisconnect = () => {
-      this.isConnected = false;
-      this.notifyConnectionState(false);
-      this.subscriptions.clear();
+    this.client.onWebSocketClose = () => {
+      if (this.isConnected) {
+        this.isConnected = false;
+        this.registry.forEach((reg) => {
+          reg.sub = undefined;
+        });
+        this.notifyConnectionState(false);
+      }
     };
 
     this.client.onStompError = (frame) => {
@@ -66,9 +76,20 @@ class WebSocketService {
       this.client.deactivate();
       this.client = null;
       this.isConnected = false;
+      this.registry.clear();
       this.notifyConnectionState(false);
-      this.subscriptions.clear();
     }
+  }
+
+  /** Force a quick reconnect check (e.g. phone just woke up). */
+  public ensureConnected() {
+    if (this.client && !this.isConnected && !this.client.active) {
+      this.client.activate();
+    }
+  }
+
+  public get connected() {
+    return this.isConnected;
   }
 
   public onConnectionChange(cb: (connected: boolean) => void) {
@@ -83,39 +104,37 @@ class WebSocketService {
     this.connectionCallbacks.forEach((cb) => cb(state));
   }
 
-  public subscribe(destination: string, callback: (payload: any) => void): () => void {
-    if (!this.isConnected || !this.client) {
-      this.pendingSubscriptions.push({ destination, callback });
-      return () => {
-        this.pendingSubscriptions = this.pendingSubscriptions.filter((s) => s.destination !== destination);
-      };
+  private activate(reg: Registration) {
+    if (!this.client || !this.isConnected) return;
+    try {
+      reg.sub?.unsubscribe();
+    } catch {
+      // ignore
     }
-
-    return this.doSubscribe(destination, callback);
+    reg.sub = this.client.subscribe(reg.destination, (message: IMessage) => {
+      let payload: any;
+      try {
+        payload = JSON.parse(message.body);
+      } catch {
+        payload = message.body;
+      }
+      reg.callback(payload);
+    });
   }
 
-  private doSubscribe(destination: string, callback: (payload: any) => void): () => void {
-    if (!this.client || !this.isConnected) return () => {};
-
-    // If already subscribed, return unsubscribe
-    if (this.subscriptions.has(destination)) {
-      this.subscriptions.get(destination)?.unsubscribe();
-    }
-
-    const sub = this.client.subscribe(destination, (message: IMessage) => {
-      try {
-        const payload = JSON.parse(message.body);
-        callback(payload);
-      } catch (e) {
-        callback(message.body);
-      }
-    });
-
-    this.subscriptions.set(destination, sub);
+  public subscribe(destination: string, callback: (payload: any) => void): () => void {
+    const id = this.nextId++;
+    const reg: Registration = { destination, callback };
+    this.registry.set(id, reg);
+    this.activate(reg);
 
     return () => {
-      sub.unsubscribe();
-      this.subscriptions.delete(destination);
+      this.registry.delete(id);
+      try {
+        reg.sub?.unsubscribe();
+      } catch {
+        // ignore
+      }
     };
   }
 

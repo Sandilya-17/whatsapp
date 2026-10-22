@@ -33,12 +33,44 @@ import { WifiOff, Users, Phone, Camera, Lock, Monitor, Search } from 'lucide-rea
 import type { CallSignal } from './types';
 import { addCallRecord } from './utils/callLogStorage';
 import {
+  requestPushPermissionOnFirstGesture,
+  disablePush,
+  clearNotifications,
+  setAppBadge,
+} from './utils/push';
+import {
   getStoredStarredMessages,
   unstarStoredMessage,
   subscribeToStarredUpdates,
 } from './utils/starredStorage';
 
-const STATUS_RANK: Record<string, number> = { SENT: 1, DELIVERED: 2, READ: 3 };
+const STATUS_RANK: Record<string, number> = { PENDING: 0, SENT: 1, DELIVERED: 2, READ: 3 };
+const BASE_TITLE = 'ConnectNow — Enterprise Messaging';
+/** The chat is on screen and the user is really looking at it (tab visible AND window focused). */
+const isForegroundNow = () => document.visibilityState === 'visible' && document.hasFocus();
+/** The server only knows plain message types; location / poll are enriched on the client. */
+const toServerType = (t?: string) => (t === 'LOCATION' || t === 'POLL' ? 'TEXT' : t || 'TEXT');
+const isMutedConv = (id: number) => {
+  try {
+    return (JSON.parse(localStorage.getItem('cn_muted_conv_ids') || '[]') as number[]).includes(id);
+  } catch {
+    return false;
+  }
+};
+const isLockedConv = (id: number) => {
+  try {
+    return (JSON.parse(localStorage.getItem('cn_locked_conv_ids') || '[]') as number[]).includes(id);
+  } catch {
+    return false;
+  }
+};
+
+interface OutboxItem {
+  convId: number;
+  data: Parameters<typeof api.sendMessage>[0];
+  optimistic: Message;
+  attempts: number;
+}
 /** Ticks only ever move forward: SENT -> DELIVERED -> READ. */
 const maxStatus = (a?: string, b?: string) => ((STATUS_RANK[a || ''] || 0) >= (STATUS_RANK[b || ''] || 0) ? a : b) as Message['status'];
 
@@ -88,6 +120,16 @@ export const App: React.FC = () => {
   activeCallRef.current = activeCall;
   const incomingCallSignalRef = useRef(incomingCallSignal);
   incomingCallSignalRef.current = incomingCallSignal;
+  // Latest state for long-lived WebSocket callbacks (they would otherwise see stale values)
+  const activeConversationRef = useRef(activeConversation);
+  activeConversationRef.current = activeConversation;
+  const conversationsRef = useRef(conversations);
+  conversationsRef.current = conversations;
+  const incomingCandidatesRef = useRef<any[]>([]);
+  const outboxRef = useRef<OutboxItem[]>([]);
+  const flushingRef = useRef(false);
+  const hiddenAtRef = useRef<number | null>(null);
+  const pendingOpenConvRef = useRef<number | null>(null);
 
   // Starred messages persistent state
   const [starredMessages, setStarredMessages] = useState<Message[]>(() => getStoredStarredMessages());
@@ -203,12 +245,25 @@ export const App: React.FC = () => {
     // Connect WebSocket
     const unsubConn = wsService.onConnectionChange((connected) => {
       setIsConnected(connected);
+      if (connected) {
+        reportForeground();
+        checkPendingCall();
+        void deliverOutbox();
+      }
     });
 
     const handleCallSignal = (signal: CallSignal) => {
       if (!signal) return;
       if (signal.type === 'CALL_OFFER') {
-        if (activeCallRef.current) {
+        const ringing = incomingCallSignalRef.current;
+        if (ringing && ringing.callerId === signal.callerId) {
+          // same call delivered twice (live + replay): just keep the richer candidate list
+          if ((signal.candidates?.length || 0) > incomingCandidatesRef.current.length) {
+            incomingCandidatesRef.current = [...(signal.candidates || [])];
+          }
+          return;
+        }
+        if (activeCallRef.current || ringing) {
           wsService.send('/app/call.signal', {
             type: 'CALL_BUSY',
             callType: signal.callType,
@@ -217,7 +272,11 @@ export const App: React.FC = () => {
           });
           return;
         }
+        incomingCandidatesRef.current = [...(signal.candidates || [])];
         setIncomingCallSignal(signal);
+      } else if (signal.type === 'ICE_CANDIDATE' && incomingCallSignalRef.current && !activeCallRef.current) {
+        // The phone is still ringing: keep the caller's network candidates for when the call is answered
+        incomingCandidatesRef.current.push(signal.candidate);
       } else {
         setActiveSignal(signal);
         if (signal.type === 'CALL_REJECT') {
@@ -239,22 +298,24 @@ export const App: React.FC = () => {
             direction: 'missed',
           });
           setIncomingCallSignal(null);
+          incomingCandidatesRef.current = [];
         }
       }
     };
+    handleCallSignalRef.current = handleCallSignal;
 
-    wsService.connect(() => {
-      // 1. Subscribe to personal queue for incoming messages
+    const unsubs: Array<() => void> = [
+      // 1. Personal queue for incoming messages
       wsService.subscribe('/user/queue/messages', (incomingMsg: Message) => {
         handleIncomingMessage(incomingMsg);
-      });
+      }),
 
-      // 2. Subscribe to personal queue for contact notifications
+      // 2. Contact notifications
       wsService.subscribe('/user/queue/notifications', () => {
         loadContacts();
         loadPendingRequests();
         loadConversations();
-      });
+      }),
 
       // 2b. Delivery / read receipts for messages I sent (works even when that chat isn't open)
       wsService.subscribe('/user/queue/receipts', (receipt: { conversationId: number; messageId?: number | null; status: 'DELIVERED' | 'READ'; updatedByUserId: number }) => {
@@ -267,26 +328,23 @@ export const App: React.FC = () => {
               : m
           )
         );
-      });
+      }),
 
-      // 3. Subscribe to global presence channel
+      // 3. Global presence channel
       wsService.subscribe('/topic/presence', (presence: PresenceNotification) => {
         handlePresenceUpdate(presence);
-      });
+      }),
 
-      // 4. Subscribe to personal calls topic for WebRTC signaling
-      wsService.subscribe(`/topic/calls/${currentUser.id}`, (signal: CallSignal) => {
-        handleCallSignal(signal);
-      });
+      // 4. + 5. WebRTC signalling
+      wsService.subscribe(`/topic/calls/${currentUser.id}`, (signal: CallSignal) => handleCallSignal(signal)),
+      wsService.subscribe('/user/queue/call', (signal: CallSignal) => handleCallSignal(signal)),
+    ];
 
-      // 5. Subscribe to personal call queue
-      wsService.subscribe('/user/queue/call', (signal: CallSignal) => {
-        handleCallSignal(signal);
-      });
-    });
+    wsService.connect();
 
     return () => {
       unsubConn();
+      unsubs.forEach((u) => u());
       wsService.disconnect();
     };
   }, [currentUser]);
@@ -300,11 +358,14 @@ export const App: React.FC = () => {
       .getMessages(activeConversation.id)
       .then((res) => {
         const sorted = [...res.content].reverse();
-        setMessages(sorted);
-        api.markAsRead(activeConversation.id);
-        setConversations((prev) =>
-          prev.map((c) => (c.id === activeConversation.id ? { ...c, unreadCount: 0 } : c))
-        );
+        setMessages(withOutbox(activeConversation.id, sorted));
+        if (isForegroundNow()) {
+          api.markAsRead(activeConversation.id).catch(() => {});
+          setConversations((prev) =>
+            prev.map((c) => (c.id === activeConversation.id ? { ...c, unreadCount: 0 } : c))
+          );
+          clearNotifications(`conv-${activeConversation.id}`);
+        }
       })
       .catch((err) => {
         console.error('Error fetching messages:', err);
@@ -315,23 +376,30 @@ export const App: React.FC = () => {
     const unsubMessages = wsService.subscribe(
       `/topic/conversations/${activeConversation.id}`,
       (incomingMsg: Message) => {
+        const same = (m: Message) =>
+          m.id === incomingMsg.id ||
+          (!!incomingMsg.clientMessageId && m.clientMessageId === incomingMsg.clientMessageId);
         setMessages((prev) => {
-          const exists = prev.some(
-            (m) => m.id === incomingMsg.id || m.clientMessageId === incomingMsg.clientMessageId
-          );
-          if (exists) {
+          if (prev.some(same)) {
             return prev.map((m) =>
-              m.id === incomingMsg.id || m.clientMessageId === incomingMsg.clientMessageId
-                ? { ...incomingMsg, status: maxStatus(m.status, incomingMsg.status) }
+              same(m)
+                ? {
+                    ...incomingMsg,
+                    // keep client-only enrichment and never move ticks backwards
+                    poll: m.poll ?? incomingMsg.poll,
+                    locationData: m.locationData ?? incomingMsg.locationData,
+                    messageType: m.messageType === 'LOCATION' || m.messageType === 'POLL' ? m.messageType : incomingMsg.messageType,
+                    status: maxStatus(m.status, incomingMsg.status),
+                  }
                 : m
             );
           }
           return [...prev, incomingMsg];
         });
 
-        if (incomingMsg.sender.id !== currentUser.id) {
-          sound.playReceiveSound();
-          api.markAsRead(activeConversation.id);
+        // Only mark as read while the user is really looking at the chat (like WhatsApp)
+        if (incomingMsg.sender.id !== currentUser.id && isForegroundNow()) {
+          api.markAsRead(activeConversation.id).catch(() => {});
         }
       }
     );
@@ -354,7 +422,8 @@ export const App: React.FC = () => {
     const unsubReceipts = wsService.subscribe(
       `/topic/conversations/${activeConversation.id}/receipts`,
       (receipt: { conversationId: number; status: 'READ'; updatedByUserId: number }) => {
-        if (receipt.updatedByUserId !== currentUser.id) {
+        // Direct chats only: in groups, blue ticks arrive per message once everybody has read it
+        if (receipt.updatedByUserId !== currentUser.id && activeConversation.type === 'DIRECT') {
           setMessages((prev) =>
             prev.map((m) =>
               m.sender?.id === currentUser.id ||
@@ -382,11 +451,211 @@ export const App: React.FC = () => {
     if (isConnected && !wasConnectedRef.current && currentUser) {
       loadConversations();
       if (activeConversation) {
-        api.getMessages(activeConversation.id).then((res) => setMessages([...res.content].reverse())).catch(() => {});
+        api.getMessages(activeConversation.id).then((res) => setMessages(withOutbox(activeConversation.id, [...res.content].reverse()))).catch(() => {});
       }
     }
     wasConnectedRef.current = isConnected;
   }, [isConnected]);
+
+  /** Keeps messages that are still waiting to be sent (clock icon) when history is reloaded. */
+  const withOutbox = (convId: number, list: Message[]): Message[] => {
+    const waiting = outboxRef.current
+      .filter((o) => o.convId === convId && !list.some((m) => m.clientMessageId === o.optimistic.clientMessageId))
+      .map((o) => o.optimistic);
+    return waiting.length ? [...list, ...waiting] : list;
+  };
+
+  // ---- Foreground tracking, notifications, badge, deep links ----
+  const handleCallSignalRef = useRef<((s: CallSignal) => void) | null>(null);
+
+  const reportForeground = () => {
+    wsService.send('/app/presence.foreground', { foreground: isForegroundNow() });
+  };
+
+  /** A call that rang while the app was closed: pick it up now (the server keeps it ringing for ~45 s). */
+  const checkPendingCall = () => {
+    if (activeCallRef.current || incomingCallSignalRef.current) return;
+    api
+      .getPendingCall()
+      .then((offer) => {
+        if (offer && offer.type === 'CALL_OFFER' && !activeCallRef.current && !incomingCallSignalRef.current) {
+          handleCallSignalRef.current?.(offer);
+        }
+      })
+      .catch(() => {});
+  };
+
+  const markActiveRead = () => {
+    const conv = activeConversationRef.current;
+    if (!conv || !isForegroundNow()) return;
+    const listed = conversationsRef.current.find((c) => c.id === conv.id);
+    if (listed && listed.unreadCount > 0) {
+      api.markAsRead(conv.id).catch(() => {});
+      setConversations((prev) => prev.map((c) => (c.id === conv.id ? { ...c, unreadCount: 0 } : c)));
+    }
+    clearNotifications(`conv-${conv.id}`);
+  };
+
+  const deliverOutbox = async () => {
+    if (flushingRef.current) return;
+    flushingRef.current = true;
+    try {
+      while (outboxRef.current.length > 0) {
+        const item = outboxRef.current[0];
+        try {
+          const sent = await api.sendMessage(item.data);
+          outboxRef.current.shift();
+          const cid = item.data.clientMessageId;
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.clientMessageId === cid
+                ? {
+                    ...sent,
+                    poll: m.poll ?? sent.poll,
+                    locationData: m.locationData ?? sent.locationData,
+                    messageType: m.messageType === 'LOCATION' || m.messageType === 'POLL' ? m.messageType : sent.messageType,
+                    status: maxStatus(m.status, sent.status),
+                  }
+                : m
+            )
+          );
+          setConversations((prev) =>
+            prev.map((c) => (c.id === item.convId ? { ...c, lastMessageAt: sent.createdAt } : c))
+          );
+        } catch (err: any) {
+          const status = err instanceof ApiError ? err.status : 0;
+          const permanent = status >= 400 && status < 500;
+          item.attempts += status === 0 ? 0 : 1;
+          if (permanent || item.attempts >= 5) {
+            outboxRef.current.shift();
+            const cid = item.data.clientMessageId;
+            setMessages((prev) => prev.filter((m) => m.clientMessageId !== cid));
+            showToast(err?.message || 'Failed to send message', 'error');
+            continue;
+          }
+          break; // offline / server waking up: keep the clock icon and retry later
+        }
+      }
+    } finally {
+      flushingRef.current = false;
+    }
+  };
+
+  // Tell the server whether the app is on screen (decides push vs. no push), mark chats read on return,
+  // resync after the phone slept, and retry unsent messages.
+  useEffect(() => {
+    if (!currentUser) return;
+    const onVisibility = () => {
+      reportForeground();
+      if (document.visibilityState === 'hidden') {
+        hiddenAtRef.current = Date.now();
+        return;
+      }
+      wsService.ensureConnected();
+      markActiveRead();
+      void deliverOutbox();
+      checkPendingCall();
+      if (hiddenAtRef.current && Date.now() - hiddenAtRef.current > 5000) {
+        loadConversations();
+        const conv = activeConversationRef.current;
+        if (conv) {
+          api
+            .getMessages(conv.id)
+            .then((res) => setMessages(withOutbox(conv.id, [...res.content].reverse())))
+            .catch(() => {});
+        }
+      }
+      hiddenAtRef.current = null;
+    };
+    const onFocus = () => {
+      reportForeground();
+      markActiveRead();
+    };
+    const onOnline = () => {
+      wsService.ensureConnected();
+      void deliverOutbox();
+    };
+    const onPageHide = () => wsService.send('/app/presence.foreground', { foreground: false });
+
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('blur', reportForeground);
+    window.addEventListener('online', onOnline);
+    window.addEventListener('pagehide', onPageHide);
+    const retry = setInterval(() => {
+      if (outboxRef.current.length > 0) void deliverOutbox();
+    }, 8000);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('blur', reportForeground);
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('pagehide', onPageHide);
+      clearInterval(retry);
+    };
+  }, [currentUser?.id]);
+
+  // Web Push: ask for permission on the first tap after sign-in, then subscribe this device
+  useEffect(() => {
+    if (!currentUser) return;
+    const cleanup = requestPushPermissionOnFirstGesture();
+    // keep server-side mute state (used to silence push) in sync with the chat list
+    try {
+      (JSON.parse(localStorage.getItem('cn_muted_conv_ids') || '[]') as number[]).forEach((id) =>
+        api.setConversationMuted(id, true).catch(() => {})
+      );
+    } catch {
+      // ignore
+    }
+    return cleanup;
+  }, [currentUser?.id]);
+
+  // Unread badge on the app icon + tab title
+  useEffect(() => {
+    const total = conversations.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+    document.title = total > 0 ? `(${total}) ${BASE_TITLE}` : BASE_TITLE;
+    setAppBadge(total);
+  }, [conversations]);
+
+  // Opening a chat / call from a notification tap
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const c = params.get('c');
+    if (c) {
+      pendingOpenConvRef.current = Number(c);
+      params.delete('c');
+      params.delete('call');
+      const qs = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+    }
+    const onSwMessage = (e: MessageEvent) => {
+      if (e.data?.type === 'open-conversation' && e.data.conversationId) {
+        pendingOpenConvRef.current = Number(e.data.conversationId);
+        openPendingConversation();
+      } else if (e.data?.type === 'check-call') {
+        checkPendingCall();
+      }
+    };
+    navigator.serviceWorker?.addEventListener('message', onSwMessage);
+    return () => navigator.serviceWorker?.removeEventListener('message', onSwMessage);
+  }, []);
+
+  const openPendingConversation = () => {
+    const id = pendingOpenConvRef.current;
+    if (!id) return;
+    const conv = conversationsRef.current.find((c) => c.id === id);
+    if (!conv) return; // conversations not loaded yet; retried when they load
+    pendingOpenConvRef.current = null;
+    if (isLockedConv(id)) {
+      showToast('That chat is locked. Unlock it to read the message.', 'info');
+      return;
+    }
+    setActiveConversation(conv);
+  };
+
+  useEffect(() => {
+    if (pendingOpenConvRef.current) openPendingConversation();
+  }, [conversations]);
 
   const loadConversations = async () => {
     try {
@@ -425,7 +694,12 @@ export const App: React.FC = () => {
   };
 
   const handleIncomingMessage = (msg: Message) => {
-    sound.playReceiveSound();
+    // WebSocket callbacks live long: read the latest state through refs, not closed-over values
+    const isActive = activeConversationRef.current?.id === msg.conversationId;
+    const watching = isActive && isForegroundNow();
+    if (!isMutedConv(msg.conversationId)) {
+      sound.playReceiveSound();
+    }
     setConversations((prev) => {
       const convIndex = prev.findIndex((c) => c.id === msg.conversationId);
       if (convIndex !== -1) {
@@ -433,7 +707,7 @@ export const App: React.FC = () => {
         const conv = { ...updated[convIndex] };
         conv.lastMessagePreview = msg.content || (msg.messageType === 'IMAGE' ? '📷 Photo' : '📎 Attachment');
         conv.lastMessageAt = msg.createdAt;
-        if (!activeConversation || activeConversation.id !== msg.conversationId) {
+        if (!watching) {
           conv.unreadCount += 1;
         }
         updated.splice(convIndex, 1);
@@ -493,55 +767,63 @@ export const App: React.FC = () => {
     if (!activeConversation || !currentUser) return;
 
     const clientMessageId = `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const text = content || (locationData ? `📍 ${locationData.name}` : '');
+    const uiType = (locationData ? 'LOCATION' : poll ? 'POLL' : media ? media.type : 'TEXT') as Message['messageType'];
+    const nowIso = new Date().toISOString();
+    const replied = replyToMessageId ? messages.find((m) => m.id === replyToMessageId) : undefined;
 
-    try {
-      const newMsg = await api.sendMessage({
+    // Show the message instantly with a clock icon, exactly like WhatsApp
+    const optimistic: Message = {
+      id: -Date.now(),
+      conversationId: activeConversation.id,
+      sender: currentUser,
+      clientMessageId,
+      content: text,
+      messageType: uiType,
+      status: 'PENDING',
+      mediaUrl: media?.url,
+      mediaFileName: media?.fileName,
+      mediaFileSize: media?.fileSize,
+      poll,
+      locationData,
+      edited: false,
+      deletedForEveryone: false,
+      replyToMessageId,
+      replyToContent: replied?.content,
+      replyToSenderName: replied?.sender?.displayName,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+    };
+    setMessages((prev) => [...prev, optimistic]);
+
+    const preview = locationData
+      ? `📍 ${locationData.name}`
+      : content || (media?.type === 'IMAGE' ? '📷 Photo' : '📎 Attachment');
+    setConversations((prev) => {
+      const index = prev.findIndex((c) => c.id === activeConversation.id);
+      if (index === -1) return prev;
+      const list = [...prev];
+      list[index] = { ...list[index], lastMessagePreview: preview, lastMessageAt: nowIso };
+      const [moved] = list.splice(index, 1);
+      return [moved, ...list];
+    });
+
+    outboxRef.current.push({
+      convId: activeConversation.id,
+      optimistic,
+      attempts: 0,
+      data: {
         conversationId: activeConversation.id,
-        content: content || (locationData ? `📍 ${locationData.name}` : ''),
+        content: text,
         clientMessageId,
         replyToMessageId,
         mediaUrl: media?.url,
         mediaFileName: media?.fileName,
         mediaFileSize: media?.fileSize,
-        messageType: locationData ? 'LOCATION' : media ? (media.type as any) : 'TEXT',
-      });
-
-      // If this was a poll or location, enrich locally
-      if (poll || locationData) {
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.clientMessageId === clientMessageId || m.id === newMsg.id
-              ? {
-                  ...m,
-                  poll: poll || m.poll,
-                  locationData: locationData || m.locationData,
-                  messageType: locationData ? 'LOCATION' : poll ? 'POLL' : m.messageType,
-                }
-              : m
-          )
-        );
-      }
-
-      // Update conversations list preview
-      setConversations((prev) => {
-        const index = prev.findIndex((c) => c.id === activeConversation.id);
-        if (index !== -1) {
-          const list = [...prev];
-          list[index] = {
-            ...list[index],
-            lastMessagePreview: locationData
-              ? `📍 ${locationData.name}`
-              : content || (media?.type === 'IMAGE' ? '📷 Photo' : '📎 Attachment'),
-            lastMessageAt: newMsg.createdAt,
-          };
-          const [moved] = list.splice(index, 1);
-          return [moved, ...list];
-        }
-        return prev;
-      });
-    } catch (err: any) {
-      showToast(err.message || 'Failed to send message', 'error');
-    }
+        messageType: toServerType(uiType) as any,
+      },
+    });
+    void deliverOutbox();
   };
 
   const handleSendTyping = (isTyping: boolean) => {
@@ -719,7 +1001,7 @@ export const App: React.FC = () => {
         mediaUrl: msg.mediaUrl,
         mediaFileName: msg.mediaFileName,
         mediaFileSize: msg.mediaFileSize,
-        messageType: msg.messageType as any,
+        messageType: toServerType(msg.messageType) as any,
       });
 
       showToast('Message forwarded successfully!', 'success');
@@ -799,9 +1081,10 @@ export const App: React.FC = () => {
       type: incomingCallSignal.callType,
       peerUser: callerUser,
       isIncoming: true,
-      incomingOffer: incomingCallSignal,
+      incomingOffer: { ...incomingCallSignal, candidates: incomingCandidatesRef.current },
     });
     setIncomingCallSignal(null);
+    incomingCandidatesRef.current = [];
   };
 
   const handleDeclineIncomingCall = () => {
@@ -824,6 +1107,7 @@ export const App: React.FC = () => {
       targetUsername: incomingCallSignal.callerUsername,
     });
     setIncomingCallSignal(null);
+    incomingCandidatesRef.current = [];
   };
 
   const handleSendCallSignal = (signal: Partial<CallSignal>) => {
@@ -839,6 +1123,8 @@ export const App: React.FC = () => {
   };
 
   const handleLogout = () => {
+    // stop alerts for this account on this device
+    void disablePush();
     setAuthToken(null);
     setCurrentUser(null);
     setActiveConversation(null);

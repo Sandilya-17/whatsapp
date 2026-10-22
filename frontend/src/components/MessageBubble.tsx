@@ -4,6 +4,7 @@ import { API_ORIGIN } from '../services/api';
 import {
   Check,
   CheckCheck,
+  Clock,
   MoreVertical,
   Reply,
   Copy,
@@ -649,7 +650,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           {isSent && !message.deletedForEveryone && (
             <span
               className={`receipt-icon ${message.status === 'READ' ? 'read' : ''}`}
-              title={message.status === 'READ' ? 'Read' : message.status === 'DELIVERED' ? 'Delivered' : 'Sent'}
+              title={message.status === 'READ' ? 'Read' : message.status === 'DELIVERED' ? 'Delivered' : message.status === 'PENDING' ? 'Sending…' : 'Sent'}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -657,7 +658,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 color: message.status === 'READ' ? '#53bdeb' : 'rgba(255, 255, 255, 0.7)',
               }}
             >
-              {message.status === 'SENT' ? (
+              {message.status === 'PENDING' ? (
+                <Clock size={12} />
+              ) : message.status === 'SENT' ? (
                 <Check size={14} />
               ) : (
                 <CheckCheck size={14} />

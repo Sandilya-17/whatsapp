@@ -193,6 +193,18 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  // Push notifications / calls
+  getPushPublicKey: () => request<{ publicKey: string }>('/push/public-key'),
+  pushSubscribe: (data: { endpoint: string; p256dh: string; auth: string }) =>
+    request<{ message: string }>('/push/subscribe', { method: 'POST', body: JSON.stringify(data) }),
+  pushUnsubscribe: (endpoint: string) =>
+    request<{ message: string }>('/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint }) }),
+  setConversationMuted: (conversationId: number, muted: boolean) =>
+    request<{ message: string }>('/push/mute', { method: 'POST', body: JSON.stringify({ conversationId, muted }) }),
+  getPendingCall: async () => {
+    const res = await request<any>('/calls/pending');
+    return res && res.type ? (res as import('../types').CallSignal) : null;
+  },
   markAsRead: (conversationId: number) =>
     request<{ message: string }>(`/messages/conversations/${conversationId}/read`, {
       method: 'POST',
