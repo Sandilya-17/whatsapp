@@ -14,6 +14,7 @@ import { api, getAuthToken, setAuthToken, ApiError } from './services/api';
 import { wsService } from './services/websocket';
 import { sound } from './utils/sound';
 import { AuthModal } from './components/AuthModal';
+import { Logo } from './components/Logo';
 import { Sidebar } from './components/Sidebar';
 import { ChatArea } from './components/ChatArea';
 import { ContactSearchModal } from './components/ContactSearchModal';
@@ -28,7 +29,7 @@ import { StatusStoriesModal } from './components/StatusStoriesModal';
 import { LinkedDevicesModal } from './components/LinkedDevicesModal';
 import { DownloadAppsModal } from './components/DownloadAppsModal';
 import { ToastContainer } from './components/ToastContainer';
-import { MessageSquare, WifiOff, Users, Phone, Camera, Lock, Monitor } from 'lucide-react';
+import { WifiOff, Users, Phone, Camera, Lock, Monitor, Search } from 'lucide-react';
 import type { CallSignal } from './types';
 import { addCallRecord } from './utils/callLogStorage';
 import {
@@ -67,6 +68,8 @@ export const App: React.FC = () => {
   const [showStarredModal, setShowStarredModal] = useState(false);
   const [showStoriesModal, setShowStoriesModal] = useState(false);
   const [showLinkedDevicesModal, setShowLinkedDevicesModal] = useState(false);
+  // Pairing code from a ?link=CODE URL (phone camera opened a PC's QR)
+  const [incomingLinkCode, setIncomingLinkCode] = useState<string | null>(null);
   const [showDownloadAppsModal, setShowDownloadAppsModal] = useState(false);
   const [isMobilePreview, setIsMobilePreview] = useState(false);
   const [forwardingMessage, setForwardingMessage] = useState<Message | null>(null);
@@ -845,6 +848,28 @@ export const App: React.FC = () => {
     showToast('Logged out securely', 'info');
   };
 
+  // Opened from a PC's QR with the phone's camera app: /?link=CN-XXXX-XXXX
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = params.get('link');
+    if (fromUrl) {
+      sessionStorage.setItem('cn_pending_link', fromUrl);
+      params.delete('link');
+      const qs = params.toString();
+      window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : '') + window.location.hash);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const pending = sessionStorage.getItem('cn_pending_link');
+    if (pending) {
+      sessionStorage.removeItem('cn_pending_link');
+      setIncomingLinkCode(pending);
+      setShowLinkedDevicesModal(true);
+    }
+  }, [currentUser]);
+
   if (bootFailed) {
     return (
       <div className="chat-splash" style={{ height: '100dvh', background: 'var(--bg-primary)', padding: 24, textAlign: 'center' }}>
@@ -865,10 +890,9 @@ export const App: React.FC = () => {
   if (loadingInitial) {
     return (
       <div className="chat-splash" style={{ height: '100vh', background: 'var(--bg-primary)' }}>
-        <div className="splash-icon-circle">
-          <MessageSquare size={36} />
-        </div>
-        <h2 style={{ fontSize: '18px' }}>Connecting to ConnectNow Enterprise...</h2>
+        <Logo size={64} className="boot-logo" />
+        <h2 style={{ fontSize: '17px' }}>Getting things ready…</h2>
+        <div className="boot-bar"><i /></div>
       </div>
     );
   }
@@ -886,25 +910,8 @@ export const App: React.FC = () => {
 
       {/* Connection Offline Banner */}
       {!isConnected && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            background: '#ef4444',
-            color: '#fff',
-            padding: '6px 16px',
-            fontSize: '12px',
-            fontWeight: 600,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            zIndex: 10000,
-          }}
-        >
-          <WifiOff size={14} /> Reconnecting to enterprise server...
+        <div className="reconnect-pill" role="status">
+          <WifiOff size={14} /> Reconnecting…
         </div>
       )}
 
@@ -990,109 +997,48 @@ export const App: React.FC = () => {
         />
       ) : (
         <div className="chat-splash-refined">
-          <div
-            style={{
-              width: '84px',
-              height: '84px',
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(5, 150, 105, 0.1) 100%)',
-              border: '2px solid rgba(16, 185, 129, 0.4)',
-              color: 'var(--accent-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 0 32px rgba(16, 185, 129, 0.2)',
-              marginBottom: '20px',
-            }}
-          >
-            <MessageSquare size={42} />
+          <div className="splash-hero">
+            <Logo size={76} className="splash-logo" />
+            <h2>Your people, one tap away</h2>
+            <p>
+              Messages, voice notes, files and HD calls, in sync across your phone and computer.
+            </p>
           </div>
-
-          <h2 style={{ fontSize: '26px', fontWeight: 800, letterSpacing: '-0.5px', marginBottom: '8px' }}>
-            ConnectNow for Web & Windows
-          </h2>
-          <p style={{ maxWidth: '520px', color: 'var(--text-secondary)', fontSize: '14px', lineHeight: '1.6' }}>
-            Send and receive end-to-end encrypted messages, voice notes, rich documents, and HD voice & video calls without keeping your phone online.
-          </p>
 
           <div className="splash-features-grid">
             <div className="splash-feature-card">
-              <Phone size={22} style={{ color: 'var(--accent-primary)', flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-primary)' }}>HD Audio & Video Calls</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Crystal clear 1-on-1 and team audio/video conferences with screen sharing.
-                </div>
-              </div>
+              <span className="sf-ico sf-a"><Phone size={18} /></span>
+              <div><b>HD calls</b><small>Voice and video with screen sharing.</small></div>
             </div>
-
             <div className="splash-feature-card">
-              <Camera size={22} style={{ color: '#3b82f6', flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-primary)' }}>Status & 24h Stories</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Broadcast company announcements with customizable gradient themes.
-                </div>
-              </div>
+              <span className="sf-ico sf-b"><Camera size={18} /></span>
+              <div><b>24h stories</b><small>Share a moment that fades away.</small></div>
             </div>
-
             <div className="splash-feature-card">
-              <Lock size={22} style={{ color: '#10b981', flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-primary)' }}>Chat Lock & Passcode</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Keep sensitive chats private behind biometric Touch ID and 4-digit PIN.
-                </div>
-              </div>
+              <span className="sf-ico sf-c"><Lock size={18} /></span>
+              <div><b>Chat lock</b><small>Hide private chats behind a PIN.</small></div>
             </div>
-
             <div className="splash-feature-card">
-              <Monitor size={22} style={{ color: '#0078D4', flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-primary)' }}>Windows & Mac Multi-Device</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Instant QR code device pairing across all your desktop workstations.
-                </div>
-              </div>
+              <span className="sf-ico sf-d"><Monitor size={18} /></span>
+              <div><b>Phone + PC</b><small>Link a computer with a QR scan.</small></div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '12px', marginTop: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
-            <button
-              className="btn-primary"
-              onClick={() => setShowCreateGroupModal(true)}
-              style={{ padding: '10px 22px', fontSize: '13.5px', display: 'flex', alignItems: 'center', gap: '8px' }}
-            >
-              <Users size={16} /> New Team Group
+          <div className="splash-actions">
+            <button className="btn-primary" onClick={() => setShowCreateGroupModal(true)}>
+              <Users size={16} /> New group
             </button>
-            <button
-              className="btn-secondary"
-              onClick={() => setShowSearchModal(true)}
-              style={{ padding: '10px 22px', fontSize: '13.5px' }}
-            >
-              Find Colleagues
+            <button className="btn-secondary" onClick={() => setShowSearchModal(true)}>
+              <Search size={15} /> Find people
             </button>
-            <button
-              className="btn-secondary"
-              onClick={() => setShowLinkedDevicesModal(true)}
-              style={{ padding: '10px 18px', fontSize: '13.5px', display: 'flex', alignItems: 'center', gap: '8px' }}
-            >
-              <Monitor size={15} /> Linked Devices
+            <button className="btn-secondary" onClick={() => setShowLinkedDevicesModal(true)}>
+              <Monitor size={15} /> Link a computer
             </button>
           </div>
 
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '12px',
-              color: 'var(--text-muted)',
-              marginTop: '36px',
-            }}
-          >
-            <Lock size={13} style={{ color: 'var(--accent-primary)' }} />
-            <span>End-to-end encrypted with Enterprise AES-256 standard</span>
+          <div className="splash-foot">
+            <Lock size={13} />
+            <span>Private by design. Your chats stay between you and them.</span>
           </div>
         </div>
       )}
@@ -1174,7 +1120,8 @@ export const App: React.FC = () => {
       {showLinkedDevicesModal && (
         <LinkedDevicesModal
           currentUser={currentUser || undefined}
-          onClose={() => setShowLinkedDevicesModal(false)}
+          initialCode={incomingLinkCode}
+          onClose={() => { setShowLinkedDevicesModal(false); setIncomingLinkCode(null); }}
           onNotify={showToast}
         />
       )}

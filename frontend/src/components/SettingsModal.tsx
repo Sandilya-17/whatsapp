@@ -30,7 +30,7 @@ interface SettingsModalProps {
 }
 
 const ACCENT_COLORS = [
-  { name: 'Emerald Green', hex: '#10b981', glow: 'rgba(16, 185, 129, 0.25)' },
+  { name: 'Emerald Green', hex: '#6c5cff', glow: 'rgba(108, 92, 255, 0.25)' },
   { name: 'Sapphire Blue', hex: '#3b82f6', glow: 'rgba(59, 130, 246, 0.25)' },
   { name: 'Amethyst Violet', hex: '#8b5cf6', glow: 'rgba(139, 92, 246, 0.25)' },
   { name: 'Rose Crimson', hex: '#f43f5e', glow: 'rgba(244, 63, 94, 0.25)' },
@@ -38,8 +38,8 @@ const ACCENT_COLORS = [
 ];
 
 const WALLPAPERS = [
-  { id: 'default', name: 'WhatsApp Doodle', preview: '#0a0e1a' },
-  { id: 'mesh', name: 'Emerald Mesh Gradient', preview: 'radial-gradient(circle, #059669 0%, #0a0e1a 100%)' },
+  { id: 'default', name: 'WhatsApp Doodle', preview: '#0a0918' },
+  { id: 'mesh', name: 'Emerald Mesh Gradient', preview: 'radial-gradient(circle, #5546e8 0%, #0a0918 100%)' },
   { id: 'dots', name: 'Starry Dot Grid', preview: '#0f172a' },
   { id: 'minimal', name: 'Obsidian Minimal', preview: '#000000' },
 ];
@@ -82,7 +82,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   );
 
   const [currentAccent, setCurrentAccent] = useState(() => {
-    return localStorage.getItem('connectnow_accent_color') || '#10b981';
+    return localStorage.getItem('connectnow_accent_color') || '#6c5cff';
   });
 
   // WhatsApp Auto Backup States
@@ -318,8 +318,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {successMsg && (
             <div
               style={{
-                background: 'rgba(16, 185, 129, 0.15)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
+                background: 'rgba(108, 92, 255, 0.15)',
+                border: '1px solid rgba(108, 92, 255, 0.3)',
                 borderRadius: '12px',
                 padding: '10px 14px',
                 display: 'flex',
@@ -545,7 +545,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         padding: '8px 10px',
                         borderRadius: '8px',
                         border: mediaVisibility === opt.id ? '1px solid var(--accent-primary)' : '1px solid var(--border-default)',
-                        background: mediaVisibility === opt.id ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-glass)',
+                        background: mediaVisibility === opt.id ? 'rgba(108, 92, 255, 0.15)' : 'var(--bg-glass)',
                         color: mediaVisibility === opt.id ? 'var(--accent-primary)' : 'var(--text-secondary)',
                         fontSize: '12.5px',
                         fontWeight: 600,
@@ -622,7 +622,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       fontSize: '10.5px',
                       padding: '2px 8px',
                       borderRadius: '6px',
-                      background: 'rgba(16, 185, 129, 0.15)',
+                      background: 'rgba(108, 92, 255, 0.15)',
                       color: 'var(--accent-primary)',
                       fontWeight: 600,
                     }}
@@ -704,7 +704,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         padding: '6px 10px',
                         borderRadius: '6px',
                         border: backupOver === 'wifi' ? '1px solid var(--accent-primary)' : '1px solid var(--border-default)',
-                        background: backupOver === 'wifi' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-glass)',
+                        background: backupOver === 'wifi' ? 'rgba(108, 92, 255, 0.15)' : 'var(--bg-glass)',
                         color: backupOver === 'wifi' ? 'var(--accent-primary)' : 'var(--text-secondary)',
                         fontSize: '12px',
                         fontWeight: 600,
@@ -724,7 +724,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         padding: '6px 10px',
                         borderRadius: '6px',
                         border: backupOver === 'cellular' ? '1px solid var(--accent-primary)' : '1px solid var(--border-default)',
-                        background: backupOver === 'cellular' ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-glass)',
+                        background: backupOver === 'cellular' ? 'rgba(108, 92, 255, 0.15)' : 'var(--bg-glass)',
                         color: backupOver === 'cellular' ? 'var(--accent-primary)' : 'var(--text-secondary)',
                         fontSize: '12px',
                         fontWeight: 600,

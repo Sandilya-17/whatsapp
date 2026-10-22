@@ -573,7 +573,7 @@ export const VideoCallModal: React.FC<VideoCallModalProps> = ({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Shield size={16} style={{ color: '#10b981' }} />
+            <Shield size={16} style={{ color: '#6c5cff' }} />
             <span style={{ fontSize: '13px', color: '#94a3b8', fontWeight: 600, letterSpacing: '0.02em' }}>
               ConnectNow WebRTC HD • Encrypted
             </span>
@@ -608,7 +608,7 @@ export const VideoCallModal: React.FC<VideoCallModalProps> = ({
                 background: 'rgba(0, 0, 0, 0.6)',
                 backdropFilter: 'blur(8px)',
                 fontSize: '13px',
-                color: status === 'connected' ? '#10b981' : '#f8fafc',
+                color: status === 'connected' ? '#6c5cff' : '#f8fafc',
                 fontWeight: 600,
                 fontFamily: 'monospace',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -648,7 +648,7 @@ export const VideoCallModal: React.FC<VideoCallModalProps> = ({
               top: '64px',
               left: '50%',
               transform: 'translateX(-50%)',
-              background: '#10b981',
+              background: '#6c5cff',
               color: '#fff',
               padding: '8px 16px',
               borderRadius: '20px',
@@ -710,14 +710,14 @@ export const VideoCallModal: React.FC<VideoCallModalProps> = ({
                   width: '120px',
                   height: '120px',
                   borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                  background: 'linear-gradient(135deg, #5546e8 0%, #6c5cff 100%)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: '48px',
                   fontWeight: 800,
                   color: '#fff',
-                  boxShadow: status === 'connected' ? '0 0 50px rgba(16, 185, 129, 0.5)' : 'none',
+                  boxShadow: status === 'connected' ? '0 0 50px rgba(108, 92, 255, 0.5)' : 'none',
                 }}
               >
                 {peerUser.displayName.charAt(0).toUpperCase()}
@@ -727,7 +727,7 @@ export const VideoCallModal: React.FC<VideoCallModalProps> = ({
                       position: 'absolute',
                       inset: '-12px',
                       borderRadius: '50%',
-                      border: '2px solid rgba(16, 185, 129, 0.4)',
+                      border: '2px solid rgba(108, 92, 255, 0.4)',
                       animation: 'pulse 1.5s infinite',
                     }}
                   />
@@ -756,7 +756,7 @@ export const VideoCallModal: React.FC<VideoCallModalProps> = ({
                       style={{
                         width: '3.5px',
                         height: `${h}px`,
-                        backgroundColor: '#10b981',
+                        backgroundColor: '#6c5cff',
                         borderRadius: '3px',
                         animation: `pulse 0.7s infinite alternate ${i * 0.08}s`,
                       }}

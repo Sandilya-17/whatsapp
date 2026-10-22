@@ -235,7 +235,7 @@ export const ChatLockModal: React.FC<ChatLockModalProps> = ({
                   width: '96px',
                   height: '96px',
                   borderRadius: '50%',
-                  background: 'rgba(16, 185, 129, 0.15)',
+                  background: 'rgba(108, 92, 255, 0.15)',
                   border: '2px solid var(--accent-primary)',
                   display: 'flex',
                   alignItems: 'center',
@@ -349,7 +349,7 @@ export const ChatLockModal: React.FC<ChatLockModalProps> = ({
                   width: '64px',
                   height: '64px',
                   borderRadius: '50%',
-                  background: isCurrentlyLocked ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                  background: isCurrentlyLocked ? 'rgba(239, 68, 68, 0.15)' : 'rgba(108, 92, 255, 0.15)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -461,8 +461,8 @@ export const ChatLockModal: React.FC<ChatLockModalProps> = ({
                   style={{
                     padding: '12px',
                     fontSize: '12px',
-                    background: 'rgba(16, 185, 129, 0.1)',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    background: 'rgba(108, 92, 255, 0.1)',
+                    border: '1px solid rgba(108, 92, 255, 0.3)',
                     borderRadius: '14px',
                     color: 'var(--accent-primary)',
                     cursor: 'pointer',
@@ -533,7 +533,7 @@ export const ChatLockModal: React.FC<ChatLockModalProps> = ({
                     gap: '4px',
                   }}
                 >
-                  <Fingerprint size={15} style={{ color: '#10b981' }} /> Touch ID
+                  <Fingerprint size={15} style={{ color: '#6c5cff' }} /> Touch ID
                 </button>
 
                 <span style={{ color: 'var(--border-default)' }}>•</span>

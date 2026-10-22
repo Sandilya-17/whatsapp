@@ -58,11 +58,11 @@ export const IncomingCallModal: React.FC<IncomingCallModalProps> = ({
             display: 'flex',
             alignItems: 'center',
             gap: '6px',
-            color: '#10b981',
+            color: '#6c5cff',
             fontSize: '12px',
             fontWeight: 600,
             marginBottom: '20px',
-            background: 'rgba(16, 185, 129, 0.1)',
+            background: 'rgba(108, 92, 255, 0.1)',
             padding: '4px 12px',
             borderRadius: '16px',
           }}

@@ -102,6 +102,22 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  // Device linking (QR login for PC / web)
+  qrCreate: (deviceName: string) =>
+    request<{ code: string; expiresInSeconds: number }>('/auth/qr/create', {
+      method: 'POST',
+      body: JSON.stringify({ deviceName }),
+    }),
+  qrStatus: (code: string) =>
+    request<{ status: 'PENDING' | 'APPROVED' | 'EXPIRED'; token?: string; user?: User }>(
+      `/auth/qr/status/${encodeURIComponent(code)}`
+    ),
+  linkDevice: (code: string) =>
+    request<{ linked: boolean; deviceName: string }>('/devices/link', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
+
   // Users
   getCurrentUser: () => request<User>('/users/me'),
   updateProfile: (data: { displayName?: string; statusMessage?: string; avatarUrl?: string }) =>

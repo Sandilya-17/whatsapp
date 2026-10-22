@@ -122,8 +122,8 @@ export const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
                     padding: '8px 12px',
                     borderRadius: '6px',
                     cursor: 'pointer',
-                    background: isSelected ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
-                    border: isSelected ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid transparent',
+                    background: isSelected ? 'rgba(108, 92, 255, 0.12)' : 'transparent',
+                    border: isSelected ? '1px solid rgba(108, 92, 255, 0.3)' : '1px solid transparent',
                     marginBottom: '4px',
                   }}
                 >

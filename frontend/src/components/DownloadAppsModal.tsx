@@ -97,7 +97,7 @@ export const DownloadAppsModal: React.FC<DownloadAppsModalProps> = ({
                 width: '42px',
                 height: '42px',
                 borderRadius: '12px',
-                background: 'rgba(16, 185, 129, 0.15)',
+                background: 'rgba(108, 92, 255, 0.15)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -137,7 +137,7 @@ export const DownloadAppsModal: React.FC<DownloadAppsModalProps> = ({
               padding: '10px 8px',
               borderRadius: '10px',
               border: selectedPlatform === 'mac' ? '1px solid var(--accent-primary)' : '1px solid transparent',
-              background: selectedPlatform === 'mac' ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
+              background: selectedPlatform === 'mac' ? 'rgba(108, 92, 255, 0.12)' : 'transparent',
               color: selectedPlatform === 'mac' ? 'var(--accent-primary)' : 'var(--text-secondary)',
               fontSize: '13px',
               fontWeight: 600,
@@ -158,7 +158,7 @@ export const DownloadAppsModal: React.FC<DownloadAppsModalProps> = ({
               padding: '10px 8px',
               borderRadius: '10px',
               border: selectedPlatform === 'windows' ? '1px solid var(--accent-primary)' : '1px solid transparent',
-              background: selectedPlatform === 'windows' ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
+              background: selectedPlatform === 'windows' ? 'rgba(108, 92, 255, 0.12)' : 'transparent',
               color: selectedPlatform === 'windows' ? 'var(--accent-primary)' : 'var(--text-secondary)',
               fontSize: '13px',
               fontWeight: 600,
@@ -179,7 +179,7 @@ export const DownloadAppsModal: React.FC<DownloadAppsModalProps> = ({
               padding: '10px 8px',
               borderRadius: '10px',
               border: selectedPlatform === 'ios' ? '1px solid var(--accent-primary)' : '1px solid transparent',
-              background: selectedPlatform === 'ios' ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
+              background: selectedPlatform === 'ios' ? 'rgba(108, 92, 255, 0.12)' : 'transparent',
               color: selectedPlatform === 'ios' ? 'var(--accent-primary)' : 'var(--text-secondary)',
               fontSize: '13px',
               fontWeight: 600,
@@ -200,7 +200,7 @@ export const DownloadAppsModal: React.FC<DownloadAppsModalProps> = ({
               padding: '10px 8px',
               borderRadius: '10px',
               border: selectedPlatform === 'android' ? '1px solid var(--accent-primary)' : '1px solid transparent',
-              background: selectedPlatform === 'android' ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
+              background: selectedPlatform === 'android' ? 'rgba(108, 92, 255, 0.12)' : 'transparent',
               color: selectedPlatform === 'android' ? 'var(--accent-primary)' : 'var(--text-secondary)',
               fontSize: '13px',
               fontWeight: 600,
@@ -263,16 +263,16 @@ export const DownloadAppsModal: React.FC<DownloadAppsModalProps> = ({
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '13px', color: 'var(--text-secondary)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle2 size={16} color="#10b981" /> Standalone Desktop Window
+                    <CheckCircle2 size={16} color="#6c5cff" /> Standalone Desktop Window
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle2 size={16} color="#10b981" /> Touch ID / PIN Chat Lock
+                    <CheckCircle2 size={16} color="#6c5cff" /> Touch ID / PIN Chat Lock
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle2 size={16} color="#10b981" /> Keyboard Shortcuts (Cmd+K)
+                    <CheckCircle2 size={16} color="#6c5cff" /> Keyboard Shortcuts (Cmd+K)
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle2 size={16} color="#10b981" /> WhatsApp Web Screen QR Pairing
+                    <CheckCircle2 size={16} color="#6c5cff" /> WhatsApp Web Screen QR Pairing
                   </div>
                 </div>
               </div>
@@ -345,16 +345,16 @@ export const DownloadAppsModal: React.FC<DownloadAppsModalProps> = ({
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '13px', color: 'var(--text-secondary)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle2 size={16} color="#10b981" /> Taskbar Pinning & Badges
+                    <CheckCircle2 size={16} color="#6c5cff" /> Taskbar Pinning & Badges
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle2 size={16} color="#10b981" /> Windows Action Center Toasts
+                    <CheckCircle2 size={16} color="#6c5cff" /> Windows Action Center Toasts
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle2 size={16} color="#10b981" /> WhatsApp Web Pairing QR
+                    <CheckCircle2 size={16} color="#6c5cff" /> WhatsApp Web Pairing QR
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle2 size={16} color="#10b981" /> Auto-start on Windows Boot
+                    <CheckCircle2 size={16} color="#6c5cff" /> Auto-start on Windows Boot
                   </div>
                 </div>
               </div>
@@ -392,13 +392,13 @@ export const DownloadAppsModal: React.FC<DownloadAppsModalProps> = ({
                     width: '64px',
                     height: '64px',
                     borderRadius: '16px',
-                    background: 'linear-gradient(135deg, #059669, #10b981)',
+                    background: 'linear-gradient(135deg, #5546e8, #6c5cff)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: '#fff',
                     flexShrink: 0,
-                    boxShadow: '0 8px 20px rgba(16, 185, 129, 0.3)',
+                    boxShadow: '0 8px 20px rgba(108, 92, 255, 0.3)',
                   }}
                 >
                   <Smartphone size={32} />
@@ -433,7 +433,7 @@ export const DownloadAppsModal: React.FC<DownloadAppsModalProps> = ({
                         width: '32px',
                         height: '32px',
                         borderRadius: '50%',
-                        background: 'rgba(16, 185, 129, 0.15)',
+                        background: 'rgba(108, 92, 255, 0.15)',
                         color: 'var(--accent-primary)',
                         display: 'flex',
                         alignItems: 'center',
@@ -456,7 +456,7 @@ export const DownloadAppsModal: React.FC<DownloadAppsModalProps> = ({
                         width: '32px',
                         height: '32px',
                         borderRadius: '50%',
-                        background: 'rgba(16, 185, 129, 0.15)',
+                        background: 'rgba(108, 92, 255, 0.15)',
                         color: 'var(--accent-primary)',
                         display: 'flex',
                         alignItems: 'center',
@@ -479,7 +479,7 @@ export const DownloadAppsModal: React.FC<DownloadAppsModalProps> = ({
                         width: '32px',
                         height: '32px',
                         borderRadius: '50%',
-                        background: 'rgba(16, 185, 129, 0.15)',
+                        background: 'rgba(108, 92, 255, 0.15)',
                         color: 'var(--accent-primary)',
                         display: 'flex',
                         alignItems: 'center',
@@ -492,7 +492,7 @@ export const DownloadAppsModal: React.FC<DownloadAppsModalProps> = ({
                       3
                     </div>
                     <div style={{ fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-                      Scroll down and tap <strong>Add to Home Screen</strong> <PlusSquare size={15} style={{ verticalAlign: 'middle', margin: '0 4px', color: '#10b981' }} />
+                      Scroll down and tap <strong>Add to Home Screen</strong> <PlusSquare size={15} style={{ verticalAlign: 'middle', margin: '0 4px', color: '#6c5cff' }} />
                     </div>
                   </div>
                 </div>
@@ -519,13 +519,13 @@ export const DownloadAppsModal: React.FC<DownloadAppsModalProps> = ({
                     width: '64px',
                     height: '64px',
                     borderRadius: '16px',
-                    background: 'linear-gradient(135deg, #10b981, #047857)',
+                    background: 'linear-gradient(135deg, #6c5cff, #047857)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: '#fff',
                     flexShrink: 0,
-                    boxShadow: '0 8px 20px rgba(16, 185, 129, 0.3)',
+                    boxShadow: '0 8px 20px rgba(108, 92, 255, 0.3)',
                   }}
                 >
                   <Smartphone size={32} />
@@ -554,16 +554,16 @@ export const DownloadAppsModal: React.FC<DownloadAppsModalProps> = ({
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '13px', color: 'var(--text-secondary)' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle2 size={16} color="#10b981" /> 1-Tap Home Screen App
+                    <CheckCircle2 size={16} color="#6c5cff" /> 1-Tap Home Screen App
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle2 size={16} color="#10b981" /> Live Camera QR Viewfinder
+                    <CheckCircle2 size={16} color="#6c5cff" /> Live Camera QR Viewfinder
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle2 size={16} color="#10b981" /> Photo & Story Uploads
+                    <CheckCircle2 size={16} color="#6c5cff" /> Photo & Story Uploads
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle2 size={16} color="#10b981" /> Native Haptics & Vibration
+                    <CheckCircle2 size={16} color="#6c5cff" /> Native Haptics & Vibration
                   </div>
                 </div>
               </div>

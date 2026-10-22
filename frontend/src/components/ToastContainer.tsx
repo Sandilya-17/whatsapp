@@ -28,8 +28,8 @@ export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onDismis
         let bg = 'rgba(15, 23, 42, 0.95)';
 
         if (toast.type === 'success') {
-          icon = <CheckCircle2 size={18} style={{ color: '#10b981' }} />;
-          borderClass = 'rgba(16, 185, 129, 0.4)';
+          icon = <CheckCircle2 size={18} style={{ color: '#6c5cff' }} />;
+          borderClass = 'rgba(108, 92, 255, 0.4)';
         } else if (toast.type === 'error') {
           icon = <AlertCircle size={18} style={{ color: '#ef4444' }} />;
           borderClass = 'rgba(239, 68, 68, 0.4)';

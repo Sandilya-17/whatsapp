@@ -229,8 +229,8 @@ export const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
               style={{
                 padding: '12px',
                 borderRadius: '8px',
-                background: 'rgba(16, 185, 129, 0.08)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
+                background: 'rgba(108, 92, 255, 0.08)',
+                border: '1px solid rgba(108, 92, 255, 0.3)',
                 marginBottom: '14px',
               }}
             >
@@ -334,9 +334,9 @@ export const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
                           fontWeight: 700,
                           padding: '2px 8px',
                           borderRadius: '10px',
-                          background: 'rgba(16, 185, 129, 0.15)',
+                          background: 'rgba(108, 92, 255, 0.15)',
                           color: 'var(--accent-primary)',
-                          border: '1px solid rgba(16, 185, 129, 0.3)',
+                          border: '1px solid rgba(108, 92, 255, 0.3)',
                         }}
                       >
                         Group Admin

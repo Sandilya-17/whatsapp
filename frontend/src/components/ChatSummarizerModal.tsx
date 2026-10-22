@@ -250,8 +250,8 @@ export const ChatSummarizerModal: React.FC<ChatSummarizerModalProps> = ({
                   style={{
                     padding: '12px 14px',
                     borderRadius: '10px',
-                    background: 'rgba(16, 185, 129, 0.08)',
-                    border: '1px solid rgba(16, 185, 129, 0.2)',
+                    background: 'rgba(108, 92, 255, 0.08)',
+                    border: '1px solid rgba(108, 92, 255, 0.2)',
                     display: 'flex',
                     alignItems: 'flex-start',
                     gap: '10px',

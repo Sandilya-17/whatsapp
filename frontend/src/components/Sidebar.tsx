@@ -588,7 +588,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       onOpenDownloadAppsModal();
                     }}
                   >
-                    <Download size={16} style={{ color: '#10b981' }} />
+                    <Download size={16} style={{ color: '#6c5cff' }} />
                     <span>Download Apps (Mac, Win, iOS)</span>
                   </button>
                 )}
@@ -698,7 +698,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     cursor: 'pointer',
                     border: '1px solid',
                     borderColor: filterType === type ? 'var(--accent-primary)' : 'var(--border-default)',
-                    background: filterType === type ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-glass)',
+                    background: filterType === type ? 'rgba(108, 92, 255, 0.15)' : 'var(--bg-glass)',
                     color: filterType === type ? 'var(--accent-primary)' : 'var(--text-secondary)',
                     textTransform: 'capitalize',
                     whiteSpace: 'nowrap',
@@ -1157,7 +1157,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       width: '44px',
                       height: '44px',
                       borderRadius: '50%',
-                      background: 'rgba(16, 185, 129, 0.15)',
+                      background: 'rgba(108, 92, 255, 0.15)',
                       color: 'var(--accent-primary)',
                       display: 'flex',
                       alignItems: 'center',
@@ -1209,7 +1209,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       width: '56px',
                       height: '56px',
                       borderRadius: '50%',
-                      background: 'rgba(16, 185, 129, 0.1)',
+                      background: 'rgba(108, 92, 255, 0.1)',
                       color: 'var(--accent-primary)',
                       display: 'flex',
                       alignItems: 'center',
@@ -1329,7 +1329,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
                       Pending Requests ({pendingRequests.length})
                     </span>
-                    <span style={{ fontSize: '11px', background: 'rgba(16, 185, 129, 0.15)', color: 'var(--accent-primary)', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>
+                    <span style={{ fontSize: '11px', background: 'rgba(108, 92, 255, 0.15)', color: 'var(--accent-primary)', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>
                       Action required
                     </span>
                   </div>
@@ -1342,7 +1342,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         justifyContent: 'space-between',
                         padding: '12px 14px',
                         background: 'var(--bg-glass)',
-                        border: '1px solid rgba(16, 185, 129, 0.35)',
+                        border: '1px solid rgba(108, 92, 255, 0.35)',
                         borderRadius: '12px',
                         marginBottom: '8px',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
@@ -1390,7 +1390,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             fontSize: '12px',
                             fontWeight: 700,
                             cursor: 'pointer',
-                            boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)',
+                            boxShadow: '0 2px 6px rgba(108, 92, 255, 0.3)',
                           }}
                           title="Accept Contact Request"
                         >

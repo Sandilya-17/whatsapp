@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import QRCode from 'qrcode';
 import { api, setAuthToken } from '../services/api';
 import type { User } from '../types';
 import {
-  MessageSquare,
   Lock,
   Mail,
   User as UserIcon,
@@ -11,18 +11,27 @@ import {
   QrCode,
   KeyRound,
   ShieldCheck,
-  Smartphone,
-  CheckCircle2,
   RefreshCw,
+  CheckCircle2,
+  Smartphone,
+  Zap,
+  Video,
 } from 'lucide-react';
 import { sound } from '../utils/sound';
+import { buildLinkUrl, describeThisDevice } from '../utils/deviceLink';
+import { Logo } from './Logo';
 
 interface AuthModalProps {
   onSuccess: (user: User) => void;
 }
 
+type QrState = 'loading' | 'ready' | 'error' | 'linked';
+
 export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
-  const [authMode, setAuthMode] = useState<'qr_code' | 'password'>('qr_code');
+  // Phones can't scan their own screen, so start with the password form there.
+  const [authMode, setAuthMode] = useState<'qr_code' | 'password'>(() =>
+    window.matchMedia('(max-width: 820px)').matches ? 'password' : 'qr_code'
+  );
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -30,83 +39,90 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [keepSignedIn, setKeepSignedIn] = useState(true);
 
-  // WhatsApp Web QR pairing states
-  const [pairedDeviceStatus, setPairedDeviceStatus] = useState<string | null>(null);
-  const [qrCountdown, setQrCountdown] = useState(30);
-  const [sessionPairCode, setSessionPairCode] = useState(() =>
-    `CN-PAIR-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
-  );
+  // ---- Real QR pairing (PC side) ----
+  const [qrState, setQrState] = useState<QrState>('loading');
+  const [qrImage, setQrImage] = useState<string>('');
+  const [pairCode, setPairCode] = useState<string>('');
+  const [secondsLeft, setSecondsLeft] = useState(0);
+  const [qrError, setQrError] = useState<string>('');
+  const finished = useRef(false);
 
-  // Listen for mobile scan authorization
+  const newCode = useCallback(async () => {
+    setQrState('loading');
+    setQrError('');
+    try {
+      const res = await api.qrCreate(describeThisDevice());
+      const dataUrl = await QRCode.toDataURL(buildLinkUrl(res.code), {
+        errorCorrectionLevel: 'M',
+        margin: 1,
+        width: 480,
+        color: { dark: '#14112b', light: '#ffffff' },
+      });
+      setPairCode(res.code);
+      setQrImage(dataUrl);
+      setSecondsLeft(res.expiresInSeconds);
+      setQrState('ready');
+    } catch (e: any) {
+      setQrError(e?.message || 'Could not reach the server.');
+      setQrState('error');
+    }
+  }, []);
+
   useEffect(() => {
     if (authMode !== 'qr_code') return;
+    finished.current = false;
+    newCode();
+    return () => {
+      finished.current = true;
+    };
+  }, [authMode, newCode]);
 
-    const checkPairedSession = () => {
+  // Poll the server until the phone approves this code.
+  useEffect(() => {
+    if (authMode !== 'qr_code' || qrState !== 'ready' || !pairCode) return;
+    let stop = false;
+    const tick = async () => {
       try {
-        const raw = localStorage.getItem('cn_paired_device_auth');
-        if (raw) {
-          const payload = JSON.parse(raw);
-          if (payload && payload.user) {
-            setPairedDeviceStatus(payload.deviceName || 'Mobile Phone');
-            sound.playPopSound();
-            setTimeout(() => {
-              if (payload.token) {
-                setAuthToken(payload.token);
-              }
-              onSuccess(payload.user);
-              localStorage.removeItem('cn_paired_device_auth');
-            }, 1000);
-          }
+        const res = await api.qrStatus(pairCode);
+        if (stop || finished.current) return;
+        if (res.status === 'APPROVED' && res.token && res.user) {
+          finished.current = true;
+          setQrState('linked');
+          sound.playPopSound();
+          setAuthToken(res.token);
+          setTimeout(() => onSuccess(res.user as User), 900);
+        } else if (res.status === 'EXPIRED') {
+          newCode();
         }
-      } catch (e) {
-        console.error('QR sync error', e);
+      } catch {
+        /* server may be waking up; keep polling */
       }
     };
-
-    const handleStorage = () => {
-      checkPairedSession();
-    };
-
-    window.addEventListener('storage', handleStorage);
-    const interval = setInterval(() => {
-      checkPairedSession();
-      setQrCountdown((c) => {
-        if (c <= 1) {
-          setSessionPairCode(`CN-PAIR-${Math.random().toString(36).substring(2, 8).toUpperCase()}`);
-          return 30;
-        }
-        return c - 1;
-      });
-    }, 1000);
-
+    const poll = setInterval(tick, 2000);
+    const clock = setInterval(() => setSecondsLeft((s) => (s > 0 ? s - 1 : 0)), 1000);
     return () => {
-      window.removeEventListener('storage', handleStorage);
-      clearInterval(interval);
+      stop = true;
+      clearInterval(poll);
+      clearInterval(clock);
     };
-  }, [authMode, onSuccess]);
+  }, [authMode, qrState, pairCode, newCode, onSuccess]);
+
+  useEffect(() => {
+    if (qrState === 'ready' && secondsLeft === 0 && authMode === 'qr_code') newCode();
+  }, [secondsLeft, qrState, authMode, newCode]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
-
     try {
       if (isLogin) {
-        const res = await api.login({
-          usernameOrEmail: username,
-          password,
-        });
+        const res = await api.login({ usernameOrEmail: username, password });
         setAuthToken(res.token);
         onSuccess(res.user);
       } else {
-        const res = await api.register({
-          username,
-          displayName,
-          email,
-          password,
-        });
+        const res = await api.register({ username, displayName, email, password });
         setAuthToken(res.token);
         onSuccess(res.user);
       }
@@ -117,415 +133,123 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
     }
   };
 
-  const handleSimulateQrScan = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Demo instant corporate sign-in via simulated QR scanner
-      const res = await api.login({
-        usernameOrEmail: 'sandilya',
-        password: 'password123',
-      });
-      setPairedDeviceStatus('iPhone 15 Pro (Scan simulator)');
-      sound.playPopSound();
-      setTimeout(() => {
-        setAuthToken(res.token);
-        onSuccess(res.user);
-      }, 900);
-    } catch {
-      // If sandilya doesn't exist, try fallback or show message
-      setError('Could not auto-sign in. Please enter credentials.');
-      setAuthMode('password');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div className="modal-overlay" style={{ background: '#0a0e1a', backdropFilter: 'blur(30px)' }}>
+    <div className="auth-shell">
+      <div className="auth-aurora" aria-hidden="true">
+        <span className="orb orb-a" />
+        <span className="orb orb-b" />
+        <span className="orb orb-c" />
+      </div>
+
       {authMode === 'qr_code' ? (
-        /* WhatsApp Web Style QR Code Landing Card */
-        <div
-          className="modal-content"
-          style={{
-            maxWidth: '860px',
-            width: '92%',
-            padding: '40px',
-            borderRadius: '24px',
-            border: '1px solid var(--border-default)',
-            background: 'var(--bg-secondary)',
-            boxShadow: '0 25px 60px rgba(0,0,0,0.6)',
-          }}
-        >
-          {/* Top Brand Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-              <div
-                style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '14px',
-                  background: 'var(--accent-gradient)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#fff',
-                  boxShadow: '0 8px 24px var(--accent-glow)',
-                }}
-              >
-                <MessageSquare size={26} />
-              </div>
+        <div className="auth-card auth-card-wide">
+          <div className="auth-topbar">
+            <div className="auth-brand">
+              <Logo size={46} />
               <div>
-                <h1 style={{ fontSize: '22px', fontWeight: 800, margin: 0, letterSpacing: '-0.5px' }}>
-                  ConnectNow for Web & Desktop
-                </h1>
-                <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Secure multi-platform corporate sync • Mac, Windows, iOS & Android
-                </div>
+                <h1>ConnectNow</h1>
+                <p>Chat, call and share, on every screen you own.</p>
               </div>
             </div>
-
-            <button
-              className="btn-secondary"
-              onClick={() => setAuthMode('password')}
-              style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px' }}
-            >
-              <KeyRound size={15} /> Sign in with Password
+            <button className="btn-secondary" onClick={() => setAuthMode('password')}>
+              <KeyRound size={15} /> Use password
             </button>
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1.2fr 1fr',
-              gap: '40px',
-              alignItems: 'center',
-            }}
-          >
-            {/* Left Steps */}
-            <div>
-              <h2 style={{ fontSize: '19px', fontWeight: 700, marginBottom: '20px', color: 'var(--text-primary)' }}>
-                To use ConnectNow on your computer:
-              </h2>
-              <ol
-                style={{
-                  paddingLeft: '22px',
-                  margin: 0,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '16px',
-                  color: 'var(--text-secondary)',
-                  fontSize: '14.5px',
-                  lineHeight: '1.6',
-                }}
-              >
-                <li>
-                  Open <strong>ConnectNow</strong> on your phone (iOS / Android app)
-                </li>
-                <li>
-                  Tap <strong>Settings</strong> or <strong>Linked Devices</strong> on the menu rail
-                </li>
-                <li>
-                  Tap on <strong>Link a Device</strong> to activate the camera scanner
-                </li>
-                <li>
-                  Point your phone camera to this QR code to capture it
-                </li>
+          <div className="auth-split">
+            <div className="auth-steps">
+              <h2>Link this computer in 10 seconds</h2>
+              <ol>
+                <li><span>1</span><div>Open ConnectNow on your phone and sign in.</div></li>
+                <li><span>2</span><div>Go to <b>Linked devices</b> and tap <b>Link a device</b>.</div></li>
+                <li><span>3</span><div>Point the camera at the code. You'll be signed in here instantly.</div></li>
               </ol>
-
-              <div style={{ marginTop: '28px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <input
-                  type="checkbox"
-                  id="keep-signed"
-                  checked={keepSignedIn}
-                  onChange={(e) => setKeepSignedIn(e.target.checked)}
-                  style={{ accentColor: 'var(--accent-primary)', width: '16px', height: '16px' }}
-                />
-                <label htmlFor="keep-signed" style={{ fontSize: '13px', color: 'var(--text-muted)', cursor: 'pointer' }}>
-                  Stay signed in on this computer
-                </label>
-              </div>
-
-              <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <button
-                  className="btn-primary"
-                  onClick={handleSimulateQrScan}
-                  disabled={loading}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '12px 22px',
-                    fontSize: '14px',
-                    borderRadius: '12px',
-                  }}
-                >
-                  <Smartphone size={18} /> {loading ? 'Authorizing...' : 'Simulate Mobile QR Scan'}
-                </button>
-
-                <button
-                  onClick={() => {
-                    setSessionPairCode(`CN-PAIR-${Math.random().toString(36).substring(2, 8).toUpperCase()}`);
-                    setQrCountdown(30);
-                  }}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--text-muted)',
-                    cursor: 'pointer',
-                    fontSize: '12.5px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                  }}
-                >
-                  <RefreshCw size={13} /> Refresh Code
-                </button>
+              <div className="auth-assure">
+                <ShieldCheck size={16} />
+                <span>Each code works once and expires in two minutes.</span>
               </div>
             </div>
 
-            {/* Right QR Matrix Box with Scanning Laser Effect */}
-            <div style={{ textAlign: 'center' }}>
-              <div
-                style={{
-                  position: 'relative',
-                  width: '250px',
-                  height: '250px',
-                  background: '#ffffff',
-                  borderRadius: '20px',
-                  margin: '0 auto',
-                  padding: '18px',
-                  boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden',
-                }}
-              >
-                {/* Paired Overlay when mobile scans */}
-                {pairedDeviceStatus ? (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: 'rgba(16, 185, 129, 0.96)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#fff',
-                      zIndex: 20,
-                      animation: 'fadeIn 0.3s ease',
-                      padding: '20px',
-                      textAlign: 'center',
-                    }}
-                  >
-                    <CheckCircle2 size={56} />
-                    <div style={{ marginTop: '12px', fontWeight: 800, fontSize: '18px' }}>
-                      Device Linked!
-                    </div>
-                    <div style={{ fontSize: '12.5px', opacity: 0.95, marginTop: '4px' }}>
-                      Synchronizing session with {pairedDeviceStatus}...
-                    </div>
+            <div className="auth-qr-side">
+              <div className={`qr-frame ${qrState}`}>
+                {qrState === 'ready' && <img src={qrImage} alt="Scan to link this computer" />}
+                {qrState === 'loading' && <div className="qr-spinner" />}
+                {qrState === 'error' && (
+                  <div className="qr-overlay">
+                    <AlertCircle size={30} />
+                    <p>{qrError || 'Server is waking up.'}</p>
+                    <button className="btn-primary" onClick={newCode}><RefreshCw size={14} /> Try again</button>
                   </div>
-                ) : (
-                  <>
-                    {/* QR Pattern */}
-                    <div
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(7, 1fr)',
-                        gridTemplateRows: 'repeat(7, 1fr)',
-                        gap: '4px',
-                      }}
-                    >
-                      {Array.from({ length: 49 }).map((_, i) => {
-                        const isCorner =
-                          (i < 4 || (i >= 7 && i < 11) || (i >= 14 && i < 18)) || // Top Left
-                          (i >= 3 && i < 7 && i % 7 >= 3) || // Top Right
-                          (i >= 28 && i % 7 < 4); // Bottom Left
-                        const isCenterLogo = i === 24;
-                        const isPattern = !isCenterLogo && (isCorner || (i * 7) % 3 === 0 || (i * 11) % 4 === 1);
-
-                        return (
-                          <div
-                            key={i}
-                            style={{
-                              background: isCenterLogo ? 'transparent' : isPattern ? '#0f172a' : '#f8fafc',
-                              borderRadius: '2px',
-                            }}
-                          />
-                        );
-                      })}
-                    </div>
-
-                    {/* Center ConnectNow Logo */}
-                    <div
-                      style={{
-                        position: 'absolute',
-                        width: '44px',
-                        height: '44px',
-                        borderRadius: '50%',
-                        background: '#10b981',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: '#fff',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
-                      }}
-                    >
-                      <MessageSquare size={22} />
-                    </div>
-
-                    {/* Animated Green Laser Scan Line */}
-                    <div
-                      style={{
-                        position: 'absolute',
-                        left: 0,
-                        right: 0,
-                        height: '3px',
-                        background: 'linear-gradient(90deg, transparent 0%, #10b981 50%, transparent 100%)',
-                        boxShadow: '0 0 12px #10b981',
-                        animation: 'scanLine 2.5s ease-in-out infinite alternate',
-                      }}
-                    />
-                  </>
                 )}
+                {qrState === 'linked' && (
+                  <div className="qr-overlay ok">
+                    <CheckCircle2 size={44} />
+                    <p>Linked. Signing you in…</p>
+                  </div>
+                )}
+                {qrState === 'ready' && <span className="qr-scanline" />}
               </div>
 
-              <div
-                style={{
-                  marginTop: '16px',
-                  fontSize: '12px',
-                  color: 'var(--text-muted)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                }}
-              >
-                <ShieldCheck size={14} style={{ color: 'var(--accent-primary)' }} />
-                <span>Code refreshes in {qrCountdown}s</span>
-                <span style={{ opacity: 0.4 }}>•</span>
-                <span style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-secondary)' }}>
-                  {sessionPairCode}
-                </span>
+              <div className="qr-meta">
+                <span className="qr-code-text">{pairCode || '···-····-····'}</span>
+                <span className="qr-dot" />
+                <span>{qrState === 'ready' ? `expires in ${secondsLeft}s` : 'getting code…'}</span>
+                <button className="qr-refresh" onClick={newCode} title="New code" aria-label="New code">
+                  <RefreshCw size={13} />
+                </button>
               </div>
+              <p className="qr-hint">No camera? Type the code above in <b>Linked devices → Link with code</b>.</p>
             </div>
           </div>
         </div>
       ) : (
-        /* Password Sign In / Register Card */
-        <div className="modal-content" style={{ maxWidth: '420px', padding: '32px 28px' }}>
-          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <div
-              style={{
-                width: '56px',
-                height: '56px',
-                borderRadius: '16px',
-                background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 16px',
-                boxShadow: '0 8px 16px rgba(16, 185, 129, 0.3)',
-              }}
-            >
-              <MessageSquare size={28} color="#ffffff" />
-            </div>
-            <h2 style={{ fontSize: '24px', fontWeight: '800', letterSpacing: '-0.5px' }}>ConnectNow</h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '13.5px', marginTop: '4px' }}>
-              {isLogin ? 'Sign in to your corporate account' : 'Create an account to start chatting instantly'}
-            </p>
+        <div className="auth-card auth-card-narrow">
+          <div className="auth-brand stacked">
+            <Logo size={58} />
+            <h1>ConnectNow</h1>
+            <p>{isLogin ? 'Welcome back. Sign in to continue.' : 'Create your account and start talking.'}</p>
           </div>
 
-          <button
-            onClick={() => setAuthMode('qr_code')}
-            style={{
-              width: '100%',
-              padding: '10px',
-              borderRadius: '10px',
-              border: '1px solid var(--border-default)',
-              background: 'var(--bg-glass)',
-              color: 'var(--accent-primary)',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              marginBottom: '18px',
-            }}
-          >
-            <QrCode size={16} /> Switch to WhatsApp Web QR Login
+          <button className="auth-switch" onClick={() => setAuthMode('qr_code')}>
+            <QrCode size={16} /> Sign in with a QR code from your phone
           </button>
 
           {error && (
-            <div
-              style={{
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-                borderRadius: 'var(--radius-md)',
-                padding: '10px 14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                color: '#f87171',
-                fontSize: '13px',
-                marginBottom: '16px',
-              }}
-            >
+            <div className="auth-error">
               <AlertCircle size={16} />
               <span>{error}</span>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <form onSubmit={handleSubmit} className="auth-form">
             {!isLogin && (
               <div className="form-group">
-                <label>Display Name</label>
+                <label>Display name</label>
                 <div className="search-input-wrapper">
-                  <UserIcon size={16} color="var(--text-muted)" />
-                  <input
-                    type="text"
-                    placeholder="e.g. Alice Cooper"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    required
-                  />
+                  <UserIcon size={16} />
+                  <input type="text" placeholder="e.g. Alice Cooper" value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)} required />
                 </div>
               </div>
             )}
 
             <div className="form-group">
-              <label>{isLogin ? 'Username or Email' : 'Unique Username'}</label>
+              <label>{isLogin ? 'Username or email' : 'Unique username'}</label>
               <div className="search-input-wrapper">
-                <UserIcon size={16} color="var(--text-muted)" />
-                <input
-                  type="text"
-                  placeholder={isLogin ? 'Enter username or email' : 'e.g. alice_c'}
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  required
-                />
+                <UserIcon size={16} />
+                <input type="text" placeholder={isLogin ? 'Enter username or email' : 'e.g. alice_c'}
+                  value={username} onChange={(e) => setUsername(e.target.value)}
+                  autoCapitalize="none" autoCorrect="off" required />
               </div>
             </div>
 
             {!isLogin && (
               <div className="form-group">
-                <label>Email Address</label>
+                <label>Email</label>
                 <div className="search-input-wrapper">
-                  <Mail size={16} color="var(--text-muted)" />
-                  <input
-                    type="email"
-                    placeholder="name@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
+                  <Mail size={16} />
+                  <input type="email" placeholder="name@example.com" value={email}
+                    onChange={(e) => setEmail(e.target.value)} required />
                 </div>
               </div>
             )}
@@ -533,54 +257,29 @@ export const AuthModal: React.FC<AuthModalProps> = ({ onSuccess }) => {
             <div className="form-group">
               <label>Password</label>
               <div className="search-input-wrapper">
-                <Lock size={16} color="var(--text-muted)" />
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+                <Lock size={16} />
+                <input type="password" placeholder="••••••••" value={password}
+                  onChange={(e) => setPassword(e.target.value)} required />
               </div>
             </div>
 
-            <button
-              type="submit"
-              className="btn-primary"
-              disabled={loading}
-              style={{
-                width: '100%',
-                padding: '12px',
-                marginTop: '8px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-              }}
-            >
-              <span>{loading ? 'Authenticating...' : isLogin ? 'Sign In' : 'Create Account'}</span>
+            <button type="submit" className="btn-primary auth-submit" disabled={loading}>
+              <span>{loading ? 'Please wait…' : isLogin ? 'Sign in' : 'Create account'}</span>
               <ArrowRight size={16} />
             </button>
           </form>
 
-          <div style={{ textAlign: 'center', marginTop: '20px' }}>
-            <button
-              type="button"
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setError(null);
-              }}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--accent-primary)',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '500',
-              }}
-            >
-              {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+          <div className="auth-foot">
+            <button type="button" className="link-btn"
+              onClick={() => { setIsLogin(!isLogin); setError(null); }}>
+              {isLogin ? "New here? Create an account" : 'Have an account? Sign in'}
             </button>
+          </div>
+
+          <div className="auth-perks">
+            <span><Zap size={13} /> Real-time</span>
+            <span><Video size={13} /> HD calls</span>
+            <span><Smartphone size={13} /> Phone + PC</span>
           </div>
         </div>
       )}
