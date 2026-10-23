@@ -16,6 +16,8 @@ public class ConversationDto {
     private String description;
     private Instant lastMessageAt;
     private String lastMessagePreview;
+    private Long lastMessageSenderId;
+    private String lastMessageStatus;
     private int unreadCount;
     private UserDto otherParticipant;
     private List<UserDto> members = new ArrayList<>();
@@ -29,6 +31,8 @@ public class ConversationDto {
         dto.setType(conversation.getType());
         dto.setLastMessageAt(conversation.getLastMessageAt());
         dto.setLastMessagePreview(conversation.getLastMessagePreview());
+        dto.setLastMessageSenderId(conversation.getLastMessageSenderId());
+        dto.setLastMessageStatus(conversation.getLastMessageStatus() != null ? conversation.getLastMessageStatus().name() : null);
         dto.setDescription(conversation.getDescription());
 
         int unread = 0;
@@ -114,6 +118,22 @@ public class ConversationDto {
 
     public void setLastMessagePreview(String lastMessagePreview) {
         this.lastMessagePreview = lastMessagePreview;
+    }
+
+    public Long getLastMessageSenderId() {
+        return lastMessageSenderId;
+    }
+
+    public void setLastMessageSenderId(Long lastMessageSenderId) {
+        this.lastMessageSenderId = lastMessageSenderId;
+    }
+
+    public String getLastMessageStatus() {
+        return lastMessageStatus;
+    }
+
+    public void setLastMessageStatus(String lastMessageStatus) {
+        this.lastMessageStatus = lastMessageStatus;
     }
 
     public int getUnreadCount() {

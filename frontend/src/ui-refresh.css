@@ -143,20 +143,6 @@
 .attach-plus { transition: transform 0.2s ease; }
 .attach-plus.open { transform: rotate(45deg); }
 
-/* ---------- 3. Visual polish ---------- */
-:root {
-  --bg-primary: #070b14;
-  --bg-secondary: #0e1420;
-  --bg-surface: #0b101a;
-  --bg-tertiary: #18212f;
-  --accent-primary: #12b886;
-  --accent-secondary: #0a9a6f;
-  --accent-gradient: linear-gradient(135deg, #0a9a6f 0%, #12b886 55%, #3ddbb0 100%);
-  --bubble-sent: linear-gradient(145deg, #0b8f68 0%, #12b886 100%);
-  --bubble-received: #172131;
-  --radius-lg: 18px;
-}
-
 html { -webkit-tap-highlight-color: transparent; }
 body { text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; }
 * { scrollbar-width: thin; scrollbar-color: rgba(148,163,184,0.25) transparent; }

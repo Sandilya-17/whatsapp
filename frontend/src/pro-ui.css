@@ -1,0 +1,422 @@
+/* ==========================================================================
+   ConnectNow - Professional UI
+   The single visual layer, loaded last. It owns colour tokens, surfaces,
+   bubbles, the composer, buttons and modals. Layout and positioning stay in
+   the base stylesheets.
+
+   Design rules:
+   - One accent colour (teal) used only for actions, selection and ticks.
+   - Flat surfaces: no gradients, glows, blurs or decorative animation.
+   - Surface rules use the `html[data-theme]` prefix so they outrank the older
+     layers for both dark and light themes.
+   - No backdrop-filter on panels: it makes them the containing block for
+     fixed children such as the mobile bottom bar.
+   ========================================================================== */
+
+/* ---------- Tokens ---------- */
+:root,
+:root:not([data-theme="light"]),
+html[data-theme="dark"] {
+  --accent-primary: #00a884;
+  --accent-secondary: #008f72;
+  --accent-tertiary: #53bdeb;
+  --accent-aqua: #53bdeb;
+  --accent-gradient: #00a884;
+  --accent-gradient-hover: #008f72;
+  --spark-gradient: #00a884;
+  --accent-soft: rgba(0, 168, 132, 0.16);
+
+  --bg-primary: #0b141a;
+  --bg-secondary: #202c33;
+  --bg-tertiary: #2a3942;
+  --bg-surface: #111b21;
+  --bg-card: #111b21;
+  --bg-card-hover: #202c33;
+  --bg-input: #2a3942;
+  --bg-hover: rgba(134, 150, 160, 0.1);
+  --bg-glass: #202c33;
+  --bg-elevated: #233138;
+
+  --bubble-received: #202c33;
+  --bubble-sent: #005c4b;
+  --bubble-text: #e9edef;
+  --bubble-meta: rgba(233, 237, 239, 0.7);
+
+  --text-primary: #e9edef;
+  --text-secondary: #aebac1;
+  --text-muted: #8696a0;
+  --text-inverse: #111b21;
+
+  --border-subtle: rgba(134, 150, 160, 0.12);
+  --border-default: rgba(134, 150, 160, 0.2);
+  --border-color: rgba(134, 150, 160, 0.2);
+  --border-focus: #00a884;
+
+  --fx-accent: #00a884;
+  --fx-accent-soft: rgba(0, 168, 132, 0.16);
+  --fx-cyan: #53bdeb;
+  --fx-grad: #00a884;
+  --fx-line: rgba(134, 150, 160, 0.12);
+  --fx-glass: #202c33;
+  --fx-glass-strong: #202c33;
+  --fx-shadow-lift: 0 8px 24px -12px rgba(0, 0, 0, 0.5);
+  --fx-bubble-sent: #005c4b;
+  --fx-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --fx-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+:root:not([data-theme="light"]) {
+  color-scheme: dark;
+}
+
+:root[data-theme="light"],
+html.light-theme,
+body.light-theme {
+  --accent-primary: #008069;
+  --accent-secondary: #006d59;
+  --accent-tertiary: #027eb5;
+  --accent-aqua: #027eb5;
+  --accent-gradient: #008069;
+  --accent-gradient-hover: #006d59;
+  --spark-gradient: #008069;
+  --accent-soft: rgba(0, 128, 105, 0.12);
+
+  --bg-primary: #efeae2;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f0f2f5;
+  --bg-surface: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f5f6f6;
+  --bg-input: #f0f2f5;
+  --bg-hover: rgba(11, 20, 26, 0.05);
+  --bg-glass: #ffffff;
+  --bg-elevated: #ffffff;
+
+  --bubble-received: #ffffff;
+  --bubble-sent: #d9fdd3;
+  --bubble-text: #111b21;
+  --bubble-meta: #667781;
+
+  --text-primary: #111b21;
+  --text-secondary: #3b4a54;
+  --text-muted: #667781;
+  --text-inverse: #ffffff;
+
+  --border-subtle: rgba(11, 20, 26, 0.08);
+  --border-default: rgba(11, 20, 26, 0.14);
+  --border-color: rgba(11, 20, 26, 0.14);
+  --border-focus: #008069;
+
+  --fx-accent: #008069;
+  --fx-accent-soft: rgba(0, 128, 105, 0.12);
+  --fx-cyan: #027eb5;
+  --fx-grad: #008069;
+  --fx-line: rgba(11, 20, 26, 0.08);
+  --fx-glass: #ffffff;
+  --fx-glass-strong: #ffffff;
+  --fx-shadow-lift: 0 8px 24px -14px rgba(11, 20, 26, 0.25);
+  --fx-bubble-sent: #d9fdd3;
+
+  color-scheme: light;
+}
+
+/* ---------- Scrollbars ---------- */
+html[data-theme] * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(134, 150, 160, 0.35) transparent;
+}
+html[data-theme] *::-webkit-scrollbar { width: 6px; height: 6px; }
+html[data-theme] *::-webkit-scrollbar-thumb {
+  background: rgba(134, 150, 160, 0.35);
+  border-radius: 999px;
+}
+html[data-theme] *::-webkit-scrollbar-thumb:hover { background: rgba(134, 150, 160, 0.55); }
+
+/* ---------- App frame ---------- */
+html[data-theme] body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* ---------- Icon rail (desktop: vertical; mobile: bottom bar) ---------- */
+html[data-theme] .nav-rail {
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-subtle);
+  box-shadow: none;
+}
+html[data-theme] .rail-btn {
+  border-radius: 10px;
+  color: var(--text-muted);
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+html[data-theme] .rail-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  transform: none;
+}
+html[data-theme] .rail-btn.active {
+  background: var(--accent-soft);
+  color: var(--accent-primary);
+  box-shadow: none;
+}
+html[data-theme] .rail-btn.active svg {
+  filter: none;
+}
+html[data-theme] .rail-btn.active::before {
+  background: var(--accent-primary);
+  box-shadow: none;
+}
+html[data-theme] .rail-badge {
+  background: var(--accent-primary);
+  color: #ffffff;
+  border: 2px solid var(--bg-surface);
+  font-weight: 700;
+}
+html[data-theme] .rail-badge.danger {
+  background: #ef4444;
+  color: #ffffff;
+}
+html[data-theme] .rail-avatar-btn {
+  border: 2px solid var(--border-default);
+  background: var(--bg-tertiary);
+}
+html[data-theme] .rail-avatar-btn:hover {
+  border-color: var(--accent-primary);
+  transform: none;
+}
+
+/* ---------- Sidebar ---------- */
+html[data-theme] .sidebar {
+  background: var(--bg-secondary);
+  border-right: 1px solid var(--border-subtle);
+  box-shadow: none;
+}
+html[data-theme] .sidebar-title {
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  -webkit-text-fill-color: currentColor;
+  color: var(--text-primary);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+html[data-theme] .sidebar-search-box .search-input-wrapper,
+html[data-theme] .search-input-wrapper {
+  background: var(--bg-input);
+  border: none;
+  border-radius: 8px;
+  box-shadow: none;
+}
+html[data-theme] .search-input-wrapper:focus-within {
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* Chat rows: flat, WhatsApp-style list items */
+html[data-theme] .conv-item {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+  transition: background-color 0.15s ease;
+}
+html[data-theme] .conv-item:hover {
+  background: var(--bg-hover);
+  border: none;
+  box-shadow: none;
+  transform: none;
+}
+html[data-theme] .conv-item.active {
+  background: var(--bg-tertiary);
+  border: none;
+  box-shadow: none;
+}
+html[data-theme] .conv-item.active::before {
+  background: var(--accent-primary);
+  box-shadow: none;
+}
+html[data-theme] .conv-draft-label {
+  color: var(--accent-primary);
+}
+
+/* Online dot: static, no ping */
+html[data-theme] .status-dot.online {
+  animation: none;
+  box-shadow: none;
+}
+
+/* ---------- Chat area ---------- */
+html[data-theme] .chat-area {
+  background: var(--bg-primary);
+  animation: none;
+  isolation: auto;
+  overflow: visible;
+}
+html[data-theme] .chat-area::before,
+html[data-theme] .chat-area::after {
+  display: none;
+}
+
+html[data-theme] .chat-header {
+  background: var(--bg-secondary);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: none;
+}
+
+/* Date chips and the unread divider */
+html[data-theme] .day-separator span {
+  background: var(--bg-secondary);
+  border: none;
+  color: var(--text-muted);
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.08);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+html[data-theme] .unread-divider span {
+  background: var(--accent-soft);
+  box-shadow: none;
+}
+
+/* ---------- Messages ---------- */
+html[data-theme] .message-bubble {
+  border-radius: 8px;
+  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+  transform: none;
+  transition: none;
+}
+html[data-theme] .message-bubble:hover {
+  transform: none;
+  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+}
+html[data-theme] .message-row.received .message-bubble {
+  background: var(--bubble-received);
+  color: var(--text-primary);
+  border: none;
+}
+html[data-theme] .message-row.sent .message-bubble {
+  background: var(--bubble-sent);
+  color: var(--bubble-text);
+  border: none;
+  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+}
+html[data-theme] .message-row.sent .message-bubble:hover {
+  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+}
+
+html[data-theme] .chat-messages {
+  background-image: none;
+  background-color: var(--bg-primary);
+}
+html[data-theme] .message-meta,
+html[data-theme] .message-row.sent .message-meta {
+  color: var(--bubble-meta);
+  opacity: 1;
+}
+
+/* ---------- Composer ---------- */
+html[data-theme] .chat-input-container {
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border-subtle);
+}
+html[data-theme] .chat-input-wrapper {
+  background: var(--bg-input);
+  border: none;
+  border-radius: 8px;
+  box-shadow: none;
+  transition: box-shadow 0.2s ease;
+}
+html[data-theme] .chat-input-wrapper:focus-within {
+  border: none;
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+html[data-theme] .send-btn {
+  background: var(--accent-primary);
+  color: #ffffff;
+  box-shadow: none;
+  animation: none;
+  border-radius: 50%;
+}
+html[data-theme] .send-btn:not(:disabled):hover {
+  background: var(--accent-secondary);
+  transform: none;
+}
+html[data-theme] .send-btn:not(:disabled):active {
+  transform: scale(0.94);
+}
+html[data-theme] .send-btn:disabled {
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  box-shadow: none;
+}
+
+/* ---------- Buttons, inputs ---------- */
+html[data-theme] .form-btn-primary,
+html[data-theme] .btn-primary {
+  background: var(--accent-primary);
+  color: #ffffff;
+  box-shadow: none;
+  filter: none;
+  transform: none;
+  transition: background-color 0.18s ease;
+}
+html[data-theme] .form-btn-primary:hover,
+html[data-theme] .btn-primary:hover {
+  background: var(--accent-secondary);
+  filter: none;
+  transform: none;
+}
+html[data-theme] .form-btn-primary:active,
+html[data-theme] .btn-primary:active {
+  transform: scale(0.98);
+}
+html[data-theme] .form-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+/* ---------- Modals ---------- */
+html[data-theme] .modal-backdrop {
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+html[data-theme] .modal-container {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: 0 16px 40px -12px rgba(0, 0, 0, 0.45);
+  animation: pro-modal-in 0.2s var(--fx-ease) backwards;
+}
+@keyframes pro-modal-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme] .modal-container {
+    animation: none;
+  }
+}
+
+/* ---------- Small screens: bottom bar ---------- */
+@media (max-width: 768px) {
+  html[data-theme] .nav-rail {
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-subtle);
+    border-right: none;
+  }
+  html[data-theme] .rail-btn {
+    width: 40px;
+    height: 40px;
+  }
+  html[data-theme] .rail-avatar-btn {
+    margin-top: 0;
+  }
+  html[data-theme] .rail-btn.active {
+    background: transparent;
+    color: var(--accent-primary);
+  }
+}

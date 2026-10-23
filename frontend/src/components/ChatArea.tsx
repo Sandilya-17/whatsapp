@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Fragment } from 'react';
 import type { Conversation, Message, User, PollData, SharedLocation } from '../types';
+import { dayLabel, readDraft, startOfDay, writeDraft } from '../utils/chatUi';
 import { MessageBubble } from './MessageBubble';
 import { CreatePollModal } from './CreatePollModal';
 import { ChatSummarizerModal } from './ChatSummarizerModal';
@@ -24,6 +25,7 @@ import {
   Send,
   X,
   ArrowLeft,
+  ArrowDown,
   MessageSquare,
   Mic,
   Search,
@@ -157,6 +159,16 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [localReactions, setLocalReactions] = useState<Record<number, { emoji: string; count: number; users: string[] }[]>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  // WhatsApp-style scroll + unread state (per open chat)
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
+  const lastMsgIdRef = useRef<number | null>(null);
+  const draftSkipRef = useRef(false);
+  const [showJumpToBottom, setShowJumpToBottom] = useState(false);
+  const [newBelowCount, setNewBelowCount] = useState(0);
+  const [unreadAnchor, setUnreadAnchor] = useState<
+    { convId: number; msgId: number | null; count: number } | null
+  >(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -186,9 +198,97 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     };
   }, [showMoreMenu]);
 
+  const isMineMsg = (msg: Message): boolean =>
+    Boolean(
+      currentUser &&
+        (msg.sender?.id === currentUser.id ||
+          String(msg.sender?.id) === String(currentUser.id) ||
+          (currentUser.username &&
+            msg.sender?.username &&
+            currentUser.username.toLowerCase() === msg.sender.username.toLowerCase()))
+    );
+
+  // Switching chats resets per-chat UI state (WhatsApp keeps replies/edits scoped to a chat)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    isNearBottomRef.current = true;
+    lastMsgIdRef.current = null;
+    setShowJumpToBottom(false);
+    setNewBelowCount(0);
+    setReplyingTo(null);
+    setEditingMessage(null);
+  }, [conversation.id]);
+
+  // Drafts: load this chat's draft on open, persist edits per conversation.
+  // The skip flag stops the old chat's text being saved under the new chat id.
+  useEffect(() => {
+    draftSkipRef.current = true;
+    setInputText(readDraft(conversation.id));
+  }, [conversation.id]);
+
+  useEffect(() => {
+    if (draftSkipRef.current) {
+      draftSkipRef.current = false;
+      return;
+    }
+    if (editingMessage) return;
+    writeDraft(conversation.id, inputText);
+  }, [inputText, conversation.id, editingMessage]);
+
+  // Smart auto-scroll: follow the conversation only when the reader is at the
+  // bottom or they sent the message. Otherwise count arrivals for the jump button.
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    if (!last) {
+      lastMsgIdRef.current = null;
+      return;
+    }
+    const prevId = lastMsgIdRef.current;
+    lastMsgIdRef.current = last.id;
+    if (prevId === null || isNearBottomRef.current || isMineMsg(last)) {
+      messagesEndRef.current?.scrollIntoView({ behavior: prevId === null ? 'auto' : 'smooth' });
+      setNewBelowCount(0);
+    } else if (last.id !== prevId) {
+      setNewBelowCount((n: number) => n + 1);
+    }
   }, [messages, isOtherUserTyping]);
+
+  // "N unread messages" divider: anchored once per chat, using the unread count
+  // the chat had when it was opened, so it does not drift as new messages arrive.
+  useEffect(() => {
+    if (messages.length === 0) return;
+    if (messages[messages.length - 1].conversationId !== conversation.id) return;
+    if (unreadAnchor && unreadAnchor.convId === conversation.id) return;
+    const count = conversation.unreadCount || 0;
+    let msgId: number | null = null;
+    if (count > 0) {
+      let seen = 0;
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (!isMineMsg(messages[i])) {
+          seen++;
+          if (seen === count) {
+            msgId = messages[i].id;
+            break;
+          }
+        }
+      }
+    }
+    setUnreadAnchor({ convId: conversation.id, msgId, count });
+  }, [messages, conversation.id, conversation.unreadCount, unreadAnchor]);
+
+  const handleMessagesScroll = () => {
+    const el = messagesScrollRef.current;
+    if (!el) return;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const nearBottom = distanceFromBottom < 140;
+    isNearBottomRef.current = nearBottom;
+    setShowJumpToBottom(!nearBottom);
+    if (nearBottom) setNewBelowCount(0);
+  };
+
+  const jumpToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setNewBelowCount(0);
+  };
 
   // Voice recording timer
   useEffect(() => {
@@ -977,7 +1077,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       )}
 
       {/* Message List */}
-      <div className="chat-messages">
+      <div className="chat-messages" ref={messagesScrollRef} onScroll={handleMessagesScroll}>
         {filteredMessages.length === 0 ? (
           <div className="chat-splash">
             <div className="splash-icon-circle">
@@ -993,22 +1093,35 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             </p>
           </div>
         ) : (
-          filteredMessages.map((msg) => {
+          filteredMessages.map((msg: Message, idx: number) => {
             const isMsgStarred = starredIds.includes(msg.id);
             const isMsgPinned = localPinnedId === msg.id;
             const msgReactions = localReactions[msg.id] || msg.reactions;
-            const isSent = Boolean(
-              currentUser && (
-                msg.sender?.id === currentUser.id ||
-                String(msg.sender?.id) === String(currentUser.id) ||
-                (currentUser.username && msg.sender?.username && currentUser.username.toLowerCase() === msg.sender.username.toLowerCase())
-              )
-            );
+            const isSent = isMineMsg(msg);
+            const prevMsg = idx > 0 ? filteredMessages[idx - 1] : null;
+            const showDaySeparator =
+              Boolean(msg.createdAt) &&
+              (!prevMsg?.createdAt ||
+                startOfDay(new Date(prevMsg.createdAt)) !== startOfDay(new Date(msg.createdAt)));
+            const showUnreadDivider =
+              unreadAnchor?.convId === conversation.id && unreadAnchor.msgId === msg.id;
 
             return (
+              <Fragment key={msg.id}>
+              {showDaySeparator && (
+                <div className="day-separator" role="separator" aria-label={dayLabel(msg.createdAt)}>
+                  <span>{dayLabel(msg.createdAt)}</span>
+                </div>
+              )}
+              {showUnreadDivider && (
+                <div className="unread-divider" role="separator">
+                  <span>
+                    {unreadAnchor?.count ?? 0} unread message{(unreadAnchor?.count ?? 0) === 1 ? '' : 's'}
+                  </span>
+                </div>
+              )}
               <div
                 id={`msg-${msg.id}`}
-                key={msg.id}
                 style={{
                   display: 'flex',
                   width: '100%',
@@ -1039,11 +1152,26 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                   onVotePoll={onVotePoll}
                 />
               </div>
+              </Fragment>
             );
           })
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Jump to latest (WhatsApp-style floating button with new-message count) */}
+      {showJumpToBottom && (
+        <button
+          type="button"
+          className="wa-jump-bottom"
+          onClick={jumpToBottom}
+          title="Jump to latest messages"
+          aria-label="Jump to latest messages"
+        >
+          {newBelowCount > 0 && <span className="wa-jump-count">{newBelowCount}</span>}
+          <ArrowDown size={20} />
+        </button>
+      )}
 
       {/* Typing notification */}
       {isOtherUserTyping && (

@@ -182,6 +182,9 @@ public class MessageService {
             preview = preview.substring(0, 57) + "...";
         }
         conversation.setLastMessagePreview(preview);
+        conversation.setLastMessageId(message.getId());
+        conversation.setLastMessageSenderId(sender.getId());
+        conversation.setLastMessageStatus(message.getStatus());
         conversation.setLastMessageAt(Instant.now());
         conversationRepository.save(conversation);
 
@@ -292,6 +295,7 @@ public class MessageService {
                     senders.add(m.getSender());
                 }
             }
+            refreshLastMessageStatus(conversation);
             afterCommit(() -> {
                 for (int i = 0; i < updates.size(); i++) {
                     pushReceipt(senders.get(i), updates.get(i));
@@ -302,6 +306,7 @@ public class MessageService {
 
         // Direct chat: update all incoming messages in DB to READ
         messageRepository.markMessagesAsReadForUser(conversation, currentUser.getId());
+        refreshLastMessageStatus(conversation);
 
         MessageStatusUpdateDto update = new MessageStatusUpdateDto(
                 null,
@@ -327,9 +332,11 @@ public class MessageService {
 
         Set<String> notified = new HashSet<>();
         List<Runnable> pushes = new java.util.ArrayList<>();
+        java.util.Map<Long, Conversation> touched = new java.util.LinkedHashMap<>();
         for (Message m : pending) {
             m.setStatus(MessageStatus.DELIVERED);
             messageRepository.save(m);
+            touched.put(m.getConversation().getId(), m.getConversation());
 
             Long convId = m.getConversation().getId();
             User sender = m.getSender();
@@ -338,7 +345,18 @@ public class MessageService {
                 pushes.add(() -> pushReceipt(sender, update));
             }
         }
+        touched.values().forEach(this::refreshLastMessageStatus);
         afterCommit(() -> pushes.forEach(Runnable::run));
+    }
+
+    /** Keeps the chat-list tick in step with the newest message's current delivery status. */
+    private void refreshLastMessageStatus(Conversation conversation) {
+        if (conversation.getLastMessageId() == null) {
+            return;
+        }
+        messageRepository.findById(conversation.getLastMessageId())
+                .ifPresent(m -> conversation.setLastMessageStatus(m.getStatus()));
+        conversationRepository.save(conversation);
     }
 
     @Transactional

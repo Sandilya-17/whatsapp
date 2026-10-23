@@ -37,6 +37,17 @@ public class Conversation {
     @Column(length = 500)
     private String lastMessagePreview;
 
+    /** Id of the newest message in this chat. */
+    private Long lastMessageId;
+
+    /** Who sent the newest message; the chat list shows ticks only when this is the viewer. */
+    private Long lastMessageSenderId;
+
+    /** Delivery status of the newest message (SENT / DELIVERED / READ). */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private MessageStatus lastMessageStatus;
+
     @OneToMany(mappedBy = "conversation", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ConversationMember> members = new ArrayList<>();
 
@@ -125,6 +136,31 @@ public class Conversation {
     public void setLastMessagePreview(String lastMessagePreview) {
         this.lastMessagePreview = lastMessagePreview;
     }
+
+    public Long getLastMessageId() {
+        return lastMessageId;
+    }
+
+    public void setLastMessageId(Long lastMessageId) {
+        this.lastMessageId = lastMessageId;
+    }
+
+    public Long getLastMessageSenderId() {
+        return lastMessageSenderId;
+    }
+
+    public void setLastMessageSenderId(Long lastMessageSenderId) {
+        this.lastMessageSenderId = lastMessageSenderId;
+    }
+
+    public MessageStatus getLastMessageStatus() {
+        return lastMessageStatus;
+    }
+
+    public void setLastMessageStatus(MessageStatus lastMessageStatus) {
+        this.lastMessageStatus = lastMessageStatus;
+    }
+
 
     public List<ConversationMember> getMembers() {
         return members;

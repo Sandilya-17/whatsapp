@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { User, Conversation, ContactRequest, CallRecord, Message, StatusStory } from '../types';
 import { getStoredStories, subscribeToStatusUpdates, startStatusSync } from '../utils/statusStorage';
+import { readDraft } from '../utils/chatUi';
+import { ReceiptTicks } from './ReceiptTicks';
 import {
   getStoredCallRecords,
   deleteCallRecord,
@@ -391,15 +393,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <Users size={22} />
             {pendingRequests.length > 0 && <span className="rail-badge">{pendingRequests.length}</span>}
-          </button>
-
-          {/* Settings button on mobile bottom bar */}
-          <button
-            className="rail-btn mobile-only-rail"
-            onClick={onOpenSettingsModal}
-            title="Settings & Profile"
-          >
-            <Settings size={22} />
           </button>
 
           {/* Starred Notes (Desktop) */}
@@ -882,14 +875,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </div>
                         <div className="conv-bottom-row">
                           <span className="conv-preview" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            {conv.unreadCount > 0 ? (
-                              <Check size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-                            ) : (
-                              <CheckCheck size={14} style={{ color: '#53bdeb', flexShrink: 0 }} />
-                            )}
-                            <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                              {conv.lastMessagePreview || 'Started conversation'}
-                            </span>
+                            {/* Drafts show first, as in WhatsApp. Ticks are not shown here because the
+                                list payload does not say who sent the last message, so they would be wrong. */}
+                            {(() => {
+                              const draft = readDraft(conv.id);
+                              return draft ? (
+                                <span className="conv-draft" style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                  <span className="conv-draft-label">Draft: </span>
+                                  {draft.replace(/\s+/g, ' ')}
+                                </span>
+                              ) : (
+                                <>
+                                  {conv.lastMessageSenderId != null && String(conv.lastMessageSenderId) === String(currentUser?.id) && (
+                                    <ReceiptTicks status={conv.lastMessageStatus} className="conv-ticks" />
+                                  )}
+                                  <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                    {conv.lastMessagePreview || 'Started conversation'}
+                                  </span>
+                                </>
+                              );
+                            })()}
                           </span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             {(conv.unreadCount > 0 || isMarkedUnread) && (

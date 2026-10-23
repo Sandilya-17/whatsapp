@@ -165,6 +165,9 @@ export const App: React.FC = () => {
     setIsDarkTheme((prev) => {
       const next = !prev;
       localStorage.setItem('connectnow_theme', next ? 'dark' : 'light');
+      // Briefly animate colour changes so the switch cross-fades instead of snapping
+      document.documentElement.classList.add('wa-theme-animating');
+      window.setTimeout(() => document.documentElement.classList.remove('wa-theme-animating'), 500);
       if (next) {
         document.documentElement.setAttribute('data-theme', 'dark');
         document.documentElement.classList.remove('light-theme');
@@ -319,6 +322,15 @@ export const App: React.FC = () => {
 
       // 2b. Delivery / read receipts for messages I sent (works even when that chat isn't open)
       wsService.subscribe('/user/queue/receipts', (receipt: { conversationId: number; messageId?: number | null; status: 'DELIVERED' | 'READ'; updatedByUserId: number }) => {
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === receipt.conversationId &&
+            c.lastMessageSenderId != null &&
+            String(c.lastMessageSenderId) === String(currentUser.id)
+              ? { ...c, lastMessageStatus: maxStatus(c.lastMessageStatus ?? undefined, receipt.status) }
+              : c
+          )
+        );
         setMessages((prev) =>
           prev.map((m) =>
             m.conversationId === receipt.conversationId &&
@@ -520,7 +532,17 @@ export const App: React.FC = () => {
             )
           );
           setConversations((prev) =>
-            prev.map((c) => (c.id === item.convId ? { ...c, lastMessageAt: sent.createdAt } : c))
+            prev.map((c) =>
+              c.id === item.convId
+                ? {
+                    ...c,
+                    lastMessageAt: sent.createdAt,
+                    lastMessageId: sent.id,
+                    lastMessageSenderId: currentUser?.id ?? null,
+                    lastMessageStatus: maxStatus(c.lastMessageStatus ?? undefined, sent.status) as Conversation['lastMessageStatus'],
+                  }
+                : c
+            )
           );
         } catch (err: any) {
           const status = err instanceof ApiError ? err.status : 0;

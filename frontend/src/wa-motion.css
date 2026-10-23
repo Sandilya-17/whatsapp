@@ -1,0 +1,250 @@
+/* ==========================================================================
+   WhatsApp-parity motion + polish layer
+   Loaded last (main.tsx) so it refines the existing theme without rewriting it.
+   Rules:
+   - Entrance animations use `backwards` fill, so no transform lingers after
+     the animation ends (a lingering transform would trap position:fixed menus).
+   - Everything is disabled under prefers-reduced-motion.
+   ========================================================================== */
+
+:root {
+  --wa-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --wa-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* ---------- Keyframes ---------- */
+@keyframes wa-msg-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes wa-chip-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes wa-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes wa-fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes wa-jump-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.7); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes wa-count-pop {
+  0%   { transform: scale(0); }
+  60%  { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+@keyframes wa-list-in {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes wa-bar-in {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+
+/* ---------- Messages ---------- */
+.message-row {
+  animation: wa-msg-in 0.26s var(--wa-ease) backwards;
+}
+.message-row.sent {
+  transform-origin: 100% 100%;
+}
+
+/* Date separator chip, sticky while scrolling like WhatsApp */
+.day-separator {
+  position: sticky;
+  top: 6px;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  margin: 6px 0 2px;
+  pointer-events: none;
+}
+.day-separator span {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--text-secondary, #8696a0);
+  background: color-mix(in srgb, var(--bg-secondary, #1f2c33) 85%, transparent);
+  backdrop-filter: blur(10px) saturate(1.4);
+  -webkit-backdrop-filter: blur(10px) saturate(1.4);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  animation: wa-chip-in 0.3s var(--wa-spring) backwards;
+}
+
+/* "N unread messages" divider */
+.unread-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0;
+  color: var(--accent-primary, #25d366);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  animation: wa-fade-in 0.4s var(--wa-ease) backwards;
+}
+.unread-divider::before,
+.unread-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  opacity: 0.45;
+}
+.unread-divider::before { background: linear-gradient(90deg, transparent, currentColor); }
+.unread-divider::after  { background: linear-gradient(90deg, currentColor, transparent); }
+.unread-divider span {
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-primary, #25d366) 14%, transparent);
+}
+
+/* Floating jump-to-latest button */
+.wa-jump-bottom {
+  position: absolute;
+  right: 18px;
+  bottom: 104px;
+  z-index: 20;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--text-primary, #e9edef);
+  background: var(--bg-secondary, #202c33);
+  box-shadow: 0 8px 22px -6px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  animation: wa-jump-in 0.35s var(--wa-spring) backwards;
+  transition: transform 0.18s var(--wa-spring), background-color 0.2s ease;
+}
+.wa-jump-bottom:hover { transform: translateY(-2px) scale(1.05); }
+.wa-jump-bottom:active { transform: scale(0.92); }
+.wa-jump-bottom:focus-visible { outline: 2px solid var(--accent-primary, #25d366); outline-offset: 3px; }
+.wa-jump-count {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent-primary, #25d366);
+  box-shadow: 0 0 0 2px var(--bg-primary, #111b21);
+  animation: wa-count-pop 0.35s var(--wa-spring);
+}
+
+.typing-indicator-bar { animation: wa-fade-up 0.25s var(--wa-ease) backwards; }
+.reply-banner { animation: wa-fade-up 0.22s var(--wa-ease) backwards; }
+
+/* ---------- Pressable controls ---------- */
+.send-btn {
+  transition: transform 0.2s var(--wa-spring), background-color 0.2s ease, box-shadow 0.2s ease;
+}
+.send-btn:not(:disabled):hover { transform: scale(1.06); }
+.send-btn:not(:disabled):active { transform: scale(0.86) rotate(-8deg); }
+
+.icon-btn {
+  transition: transform 0.15s var(--wa-ease), background-color 0.2s ease, color 0.2s ease;
+}
+.icon-btn:active { transform: scale(0.9); }
+
+.rail-btn {
+  transition: transform 0.18s var(--wa-ease), background-color 0.2s ease, color 0.2s ease;
+}
+.rail-btn:active { transform: scale(0.92); }
+
+/* ---------- Chat list ---------- */
+.conv-item {
+  position: relative;
+  transition: background-color 0.2s var(--wa-ease), transform 0.2s var(--wa-ease);
+}
+.conv-item:active { transform: scale(0.985); }
+.conv-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12%;
+  bottom: 12%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--accent-primary, #25d366);
+  animation: wa-bar-in 0.28s var(--wa-spring) backwards;
+}
+.conversation-list > .conv-item:nth-child(-n + 12) {
+  animation: wa-list-in 0.34s var(--wa-ease) backwards;
+}
+.conversation-list > .conv-item:nth-child(2) { animation-delay: 30ms; }
+.conversation-list > .conv-item:nth-child(3) { animation-delay: 60ms; }
+.conversation-list > .conv-item:nth-child(4) { animation-delay: 90ms; }
+.conversation-list > .conv-item:nth-child(5) { animation-delay: 120ms; }
+.conversation-list > .conv-item:nth-child(6) { animation-delay: 150ms; }
+.conversation-list > .conv-item:nth-child(7) { animation-delay: 180ms; }
+.conversation-list > .conv-item:nth-child(8) { animation-delay: 210ms; }
+
+/* Draft preview in the chat list, same green label as WhatsApp */
+.conv-draft-label {
+  color: #25d366;
+  font-weight: 600;
+}
+
+/* ---------- Theme switch cross-fade (class added for 500ms by App) ---------- */
+html.wa-theme-animating,
+html.wa-theme-animating *,
+html.wa-theme-animating *::before,
+html.wa-theme-animating *::after {
+  transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease, fill 0.4s ease !important;
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .message-row,
+  .day-separator span,
+  .unread-divider,
+  .wa-jump-bottom,
+  .wa-jump-count,
+  .typing-indicator-bar,
+  .reply-banner,
+  .conv-item.active::before,
+  .conversation-list > .conv-item {
+    animation: none !important;
+  }
+  .send-btn:not(:disabled):hover,
+  .send-btn:not(:disabled):active,
+  .wa-jump-bottom:hover,
+  .wa-jump-bottom:active,
+  .icon-btn:active,
+  .rail-btn:active,
+  .conv-item:active {
+    transform: none !important;
+  }
+}
+
+/* ---------- Small screens ---------- */
+@media (max-width: 768px) {
+  .wa-jump-bottom { right: 14px; bottom: 96px; }
+}
+
+/* ---------- Search field: one border (wrapper), not two ----------
+   nova.css paints the border/background on `.sidebar-search-box input`,
+   which also matches the inner <input> inside `.search-input-wrapper`. */
+.search-input-wrapper input,
+.sidebar-search-box .search-input-wrapper input {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+}
