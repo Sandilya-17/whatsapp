@@ -74,10 +74,14 @@ interface OutboxItem {
 /** Ticks only ever move forward: SENT -> DELIVERED -> READ. */
 const maxStatus = (a?: string, b?: string) => ((STATUS_RANK[a || ''] || 0) >= (STATUS_RANK[b || ''] || 0) ? a : b) as Message['status'];
 
+// The backend can sleep on a free host. Start-up retries on its own for about a minute before giving up.
+const MAX_BOOT_RETRIES = 12;
+
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [bootFailed, setBootFailed] = useState(false);
+  const [bootAutoRetries, setBootAutoRetries] = useState(0);
   const [bootAttempt, setBootAttempt] = useState(0);
 
   // Core Data
@@ -194,6 +198,17 @@ export const App: React.FC = () => {
     }
   }, [isDarkTheme]);
 
+  // While the server is waking up, retry start-up with a growing pause instead of waiting for a tap.
+  useEffect(() => {
+    if (!bootFailed || bootAutoRetries >= MAX_BOOT_RETRIES) return;
+    const delay = Math.min(2000 + bootAutoRetries * 1500, 8000);
+    const timer = window.setTimeout(() => {
+      setBootAutoRetries((n) => n + 1);
+      setBootAttempt((n) => n + 1);
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [bootFailed, bootAutoRetries]);
+
   // Check initial authentication
   useEffect(() => {
     const handleAuthExpired = () => {
@@ -211,7 +226,10 @@ export const App: React.FC = () => {
       api
         .getCurrentUser()
         .then((user) => {
-          if (!cancelled) setCurrentUser(user);
+          if (!cancelled) {
+            setCurrentUser(user);
+            setBootAutoRetries(0);
+          }
         })
         .catch((err) => {
           if (err instanceof ApiError && err.status === 401) {
@@ -1178,7 +1196,7 @@ export const App: React.FC = () => {
     }
   }, [currentUser]);
 
-  if (bootFailed) {
+  if (bootFailed && bootAutoRetries >= MAX_BOOT_RETRIES) {
     return (
       <div className="chat-splash" style={{ height: '100dvh', background: 'var(--bg-primary)', padding: 24, textAlign: 'center' }}>
         <div className="splash-icon-circle">
@@ -1188,18 +1206,21 @@ export const App: React.FC = () => {
         <p style={{ color: 'var(--text-muted)', maxWidth: 320, fontSize: 14, lineHeight: 1.5 }}>
           The server may be waking up. You are still signed in — nothing was lost.
         </p>
-        <button className="form-btn-primary" style={{ marginTop: 12, width: 'auto', padding: '10px 28px' }} onClick={() => setBootAttempt((n) => n + 1)}>
+        <button className="form-btn-primary" style={{ marginTop: 12, width: 'auto', padding: '10px 28px' }} onClick={() => {
+            setBootAutoRetries(0);
+            setBootAttempt((n) => n + 1);
+          }}>
           Try again
         </button>
       </div>
     );
   }
 
-  if (loadingInitial) {
+  if (loadingInitial || bootFailed) {
     return (
       <div className="chat-splash" style={{ height: '100vh', background: 'var(--bg-primary)' }}>
         <Logo size={64} className="boot-logo" />
-        <h2 style={{ fontSize: '17px' }}>Getting things ready…</h2>
+        <h2 style={{ fontSize: '17px' }}>{bootFailed ? 'Waking up the server…' : 'Getting things ready…'}</h2>
         <div className="boot-bar"><i /></div>
       </div>
     );

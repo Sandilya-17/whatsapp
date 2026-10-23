@@ -348,7 +348,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               setActiveTab('chats');
               setShowLockedOnly(false);
             }}
-            title="Chats"
+            title="Chats" data-label="Chats"
           >
             <MessageSquare size={22} />
             {totalUnreadCount > 0 && <span className="rail-badge">{totalUnreadCount}</span>}
@@ -358,7 +358,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             className={`rail-btn ${activeTab === 'status' ? 'active' : ''}`}
             onClick={() => setActiveTab('status')}
-            title="Status"
+            title="Status" data-label="Status"
           >
             <Camera size={22} />
             <span
@@ -379,7 +379,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             className={`rail-btn ${activeTab === 'calls' ? 'active' : ''}`}
             onClick={() => setActiveTab('calls')}
-            title="Calls"
+            title="Calls" data-label="Calls"
           >
             <Phone size={22} />
             {missedCallsCount > 0 && <span className="rail-badge danger">{missedCallsCount}</span>}
@@ -389,7 +389,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <button
             className={`rail-btn ${activeTab === 'contacts' ? 'active' : ''}`}
             onClick={() => setActiveTab('contacts')}
-            title="Contacts & Directory"
+            title="Contacts & Directory" data-label="Contacts"
           >
             <Users size={22} />
             {pendingRequests.length > 0 && <span className="rail-badge">{pendingRequests.length}</span>}
@@ -432,7 +432,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Linked Devices */}
           {onOpenLinkedDevicesModal && (
             <button
-              className="rail-btn"
+              className="rail-btn desktop-only-rail"
               onClick={onOpenLinkedDevicesModal}
               title="Linked devices"
             >
@@ -442,7 +442,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* Theme Switcher */}
           <button
-            className="rail-btn"
+            className="rail-btn desktop-only-rail"
             onClick={onToggleTheme}
             title={isDarkTheme ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           >
@@ -450,12 +450,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
 
           {/* Settings */}
-          <button className="rail-btn" onClick={onOpenSettingsModal} title="Settings">
+          <button className="rail-btn desktop-only-rail" onClick={onOpenSettingsModal} title="Settings">
             <Settings size={20} />
           </button>
 
           {/* Current User Avatar with Popover */}
-          <div ref={avatarMenuRef} style={{ position: 'relative' }}>
+          <div ref={avatarMenuRef} className="you-tab" data-label="You" style={{ position: 'relative' }}>
             <div
               className="rail-avatar-btn"
               onClick={() => setShowAvatarMenu(!showAvatarMenu)}
@@ -489,7 +489,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {showAvatarMenu && (
               <div
-                className="whatsapp-dropdown-menu"
+                className="whatsapp-dropdown-menu you-sheet"
                 style={{
                   position: 'absolute',
                   bottom: '0',
@@ -573,16 +573,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </button>
                 )}
 
+                {/* Phones: starred and archived live in this sheet (desktop has them in the side bar) */}
+                <button
+                  className="menu-item mobile-only-you"
+                  onClick={() => {
+                    setShowAvatarMenu(false);
+                    setActiveTab('starred');
+                    if (onOpenStarredModal) onOpenStarredModal();
+                  }}
+                >
+                  <Star size={16} />
+                  <span>Starred messages</span>
+                </button>
+                <button
+                  className="menu-item mobile-only-you"
+                  onClick={() => {
+                    setShowAvatarMenu(false);
+                    setActiveTab('archived');
+                  }}
+                >
+                  <Archive size={16} />
+                  <span>Archived chats{archivedConvIds.length > 0 ? ` (${archivedConvIds.length})` : ''}</span>
+                </button>
+
                 {/* Download Desktop & Mobile Apps */}
                 {onOpenDownloadAppsModal && (
                   <button
-                    className="menu-item"
+                    className="menu-item desktop-only-rail"
                     onClick={() => {
                       setShowAvatarMenu(false);
                       onOpenDownloadAppsModal();
                     }}
                   >
-                    <Download size={16} style={{ color: '#6c5cff' }} />
+                    <Download size={16} style={{ color: 'var(--accent-primary)' }} />
                     <span>Download Apps (Mac, Win, iOS)</span>
                   </button>
                 )}
@@ -590,7 +613,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Mobile App Preview */}
                 {onToggleMobilePreview && (
                   <button
-                    className="menu-item"
+                    className="menu-item desktop-only-rail"
                     onClick={() => {
                       setShowAvatarMenu(false);
                       onToggleMobilePreview();
@@ -648,14 +671,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <FolderPlus size={19} />
                 </button>
                 <button
-                  className="icon-btn"
+                  className="icon-btn mobile-fab"
                   onClick={onOpenSearchModal}
                   title="New Direct Message"
                 >
                   <PlusCircle size={19} />
                 </button>
                 <button
-                  className="icon-btn"
+                  className="icon-btn desktop-only-rail"
                   onClick={onLogout}
                   title="Log out"
                   style={{ color: '#ef4444' }}
@@ -692,7 +715,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     cursor: 'pointer',
                     border: '1px solid',
                     borderColor: filterType === type ? 'var(--accent-primary)' : 'var(--border-default)',
-                    background: filterType === type ? 'rgba(108, 92, 255, 0.15)' : 'var(--bg-glass)',
+                    background: filterType === type ? 'rgba(0, 168, 132, 0.15)' : 'var(--bg-glass)',
                     color: filterType === type ? 'var(--accent-primary)' : 'var(--text-secondary)',
                     textTransform: 'capitalize',
                     whiteSpace: 'nowrap',
@@ -848,7 +871,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             width: '44px',
                             height: '44px',
                             borderRadius: '50%',
-                            background: conv.type === 'GROUP' ? '#6366f1' : 'var(--accent-secondary)',
+                            background: conv.type === 'GROUP' ? 'var(--accent-primary)' : 'var(--accent-secondary)',
                             color: '#fff',
                             fontSize: '16px',
                             fontWeight: 700,
@@ -1163,7 +1186,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       width: '44px',
                       height: '44px',
                       borderRadius: '50%',
-                      background: 'rgba(108, 92, 255, 0.15)',
+                      background: 'rgba(0, 168, 132, 0.15)',
                       color: 'var(--accent-primary)',
                       display: 'flex',
                       alignItems: 'center',
@@ -1215,7 +1238,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       width: '56px',
                       height: '56px',
                       borderRadius: '50%',
-                      background: 'rgba(108, 92, 255, 0.1)',
+                      background: 'rgba(0, 168, 132, 0.1)',
                       color: 'var(--accent-primary)',
                       display: 'flex',
                       alignItems: 'center',
@@ -1335,7 +1358,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent-primary)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
                       Pending Requests ({pendingRequests.length})
                     </span>
-                    <span style={{ fontSize: '11px', background: 'rgba(108, 92, 255, 0.15)', color: 'var(--accent-primary)', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>
+                    <span style={{ fontSize: '11px', background: 'rgba(0, 168, 132, 0.15)', color: 'var(--accent-primary)', padding: '2px 8px', borderRadius: '10px', fontWeight: 700 }}>
                       Action required
                     </span>
                   </div>
@@ -1348,7 +1371,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         justifyContent: 'space-between',
                         padding: '12px 14px',
                         background: 'var(--bg-glass)',
-                        border: '1px solid rgba(108, 92, 255, 0.35)',
+                        border: '1px solid rgba(0, 168, 132, 0.35)',
                         borderRadius: '12px',
                         marginBottom: '8px',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
@@ -1396,7 +1419,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             fontSize: '12px',
                             fontWeight: 700,
                             cursor: 'pointer',
-                            boxShadow: '0 2px 6px rgba(108, 92, 255, 0.3)',
+                            boxShadow: '0 2px 6px rgba(0, 168, 132, 0.3)',
                           }}
                           title="Accept Contact Request"
                         >

@@ -145,7 +145,7 @@ export const MediaGalleryModal: React.FC<MediaGalleryModalProps> = ({
                             width: '36px',
                             height: '36px',
                             borderRadius: '8px',
-                            background: 'rgba(108, 92, 255, 0.15)',
+                            background: 'rgba(0, 168, 132, 0.15)',
                             color: 'var(--accent-primary)',
                             display: 'flex',
                             alignItems: 'center',

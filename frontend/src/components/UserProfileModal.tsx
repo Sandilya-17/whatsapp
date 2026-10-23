@@ -109,7 +109,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   fontSize: '11px',
                   padding: '2px 8px',
                   borderRadius: '12px',
-                  background: user.online ? 'rgba(108, 92, 255, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                  background: user.online ? 'rgba(0, 168, 132, 0.15)' : 'rgba(255, 255, 255, 0.05)',
                   color: user.online ? 'var(--status-online)' : 'var(--text-muted)',
                   fontWeight: 600,
                 }}
@@ -210,7 +210,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                   width: '100%',
                   padding: '10px',
                   borderRadius: 'var(--radius-md)',
-                  background: isBlocked ? 'rgba(108, 92, 255, 0.1)' : 'var(--danger-bg)',
+                  background: isBlocked ? 'rgba(0, 168, 132, 0.1)' : 'var(--danger-bg)',
                   border: isBlocked ? '1px solid var(--accent-primary)' : '1px solid rgba(239, 68, 68, 0.3)',
                   color: isBlocked ? 'var(--accent-primary)' : 'var(--danger)',
                   fontSize: '13px',

@@ -17,9 +17,9 @@ interface StatusStoriesModalProps {
 }
 
 const GRADIENTS = [
-  'linear-gradient(135deg, #5546e8 0%, #6c5cff 100%)',
+  'linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-primary) 100%)',
   'linear-gradient(135deg, #2563eb 0%, #3b82f6 100%)',
-  'linear-gradient(135deg, #7c3aed 0%, #8b5cf6 100%)',
+  'linear-gradient(135deg, #7c3aed 0%, var(--accent-primary) 100%)',
   'linear-gradient(135deg, #db2777 0%, #ec4899 100%)',
   'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
   'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
@@ -395,7 +395,7 @@ export const StatusStoriesModal: React.FC<StatusStoriesModalProps> = ({
                     borderRadius: '8px',
                     border: '1px solid',
                     borderColor: createMode === 'media' ? 'var(--accent-primary)' : 'var(--border-default)',
-                    background: createMode === 'media' ? 'rgba(108, 92, 255, 0.12)' : 'var(--bg-glass)',
+                    background: createMode === 'media' ? 'rgba(0, 168, 132, 0.12)' : 'var(--bg-glass)',
                     color: createMode === 'media' ? 'var(--accent-primary)' : 'var(--text-secondary)',
                     fontWeight: 600,
                     fontSize: '13px',
@@ -417,7 +417,7 @@ export const StatusStoriesModal: React.FC<StatusStoriesModalProps> = ({
                     borderRadius: '8px',
                     border: '1px solid',
                     borderColor: createMode === 'text' ? 'var(--accent-primary)' : 'var(--border-default)',
-                    background: createMode === 'text' ? 'rgba(108, 92, 255, 0.12)' : 'var(--bg-glass)',
+                    background: createMode === 'text' ? 'rgba(0, 168, 132, 0.12)' : 'var(--bg-glass)',
                     color: createMode === 'text' ? 'var(--accent-primary)' : 'var(--text-secondary)',
                     fontWeight: 600,
                     fontSize: '13px',
@@ -653,7 +653,7 @@ export const StatusStoriesModal: React.FC<StatusStoriesModalProps> = ({
                       style={{
                         padding: '2px',
                         borderRadius: '50%',
-                        background: 'linear-gradient(135deg, #6c5cff 0%, #3b82f6 100%)',
+                        background: 'linear-gradient(135deg, var(--accent-primary) 0%, #3b82f6 100%)',
                       }}
                     >
                       <div

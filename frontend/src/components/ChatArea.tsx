@@ -326,8 +326,20 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     return () => clearInterval(timer);
   }, [onSendMessage, onNotify]);
 
+  // The composer grows with its text (up to the CSS max-height) and shrinks back after sending.
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+  const fitComposer = (el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  };
+  useEffect(() => {
+    fitComposer(composerRef.current);
+  }, [inputText]);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputText(e.target.value);
+    fitComposer(e.target);
 
     // Typing notification throttled
     onSendTyping(true);
@@ -683,7 +695,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   // Background style based on wallpaper
   let wallpaperBg = undefined;
   if (wallpaper === 'mesh') {
-    wallpaperBg = 'radial-gradient(at 0% 0%, rgba(108, 92, 255, 0.08) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.08) 0px, transparent 50%)';
+    wallpaperBg = 'radial-gradient(at 0% 0%, rgba(0, 168, 132, 0.08) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(59, 130, 246, 0.08) 0px, transparent 50%)';
   } else if (wallpaper === 'dots') {
     wallpaperBg = 'radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px)';
   } else if (wallpaper === 'minimal') {
@@ -728,7 +740,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                 height: '40px',
                 fontSize: '16px',
                 fontWeight: 700,
-                background: isDirect ? 'var(--accent-secondary)' : '#6366f1',
+                background: isDirect ? 'var(--accent-secondary)' : 'var(--accent-primary)',
                 color: '#fff',
                 borderRadius: '50%',
                 display: 'flex',
@@ -946,8 +958,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
           onClick={() => setShowDisappearingModal(true)}
           style={{
             padding: '6px 14px',
-            background: 'rgba(108, 92, 255, 0.08)',
-            borderBottom: '1px solid rgba(108, 92, 255, 0.2)',
+            background: 'rgba(0, 168, 132, 0.08)',
+            borderBottom: '1px solid rgba(0, 168, 132, 0.2)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1314,13 +1326,13 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                       <span className="attach-ico" style={{ background: '#ef4444' }}><Camera size={18} /></span> Camera
                     </button>
                     <button type="button" onClick={() => { setShowAttachMenu(false); photoInputRef.current?.click(); }}>
-                      <span className="attach-ico" style={{ background: '#8b5cf6' }}><ImageIcon size={18} /></span> Photo
+                      <span className="attach-ico" style={{ background: 'var(--accent-primary)' }}><ImageIcon size={18} /></span> Photo
                     </button>
                     <button type="button" onClick={() => { setShowAttachMenu(false); fileInputRef.current?.click(); }}>
                       <span className="attach-ico" style={{ background: '#3b82f6' }}><FileText size={18} /></span> Document
                     </button>
                     <button type="button" onClick={() => { setShowAttachMenu(false); setShowLocationModal(true); }}>
-                      <span className="attach-ico" style={{ background: '#6c5cff' }}><MapPin size={18} /></span> Location
+                      <span className="attach-ico" style={{ background: 'var(--accent-primary)' }}><MapPin size={18} /></span> Location
                     </button>
                     <button type="button" onClick={() => { setShowAttachMenu(false); setShowPollModal(true); }}>
                       <span className="attach-ico" style={{ background: '#f59e0b' }}><BarChart2 size={18} /></span> Poll
@@ -1354,6 +1366,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
             {/* Textarea */}
             <textarea
+              ref={composerRef}
               className="chat-textarea"
               rows={1}
               placeholder={editingMessage ? 'Edit your message...' : 'Message'}

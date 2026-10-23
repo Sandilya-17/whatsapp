@@ -576,7 +576,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                         left: 0,
                         bottom: 0,
                         width: `${percent}%`,
-                        background: hasVoted ? 'rgba(108, 92, 255, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                        background: hasVoted ? 'rgba(0, 168, 132, 0.25)' : 'rgba(255, 255, 255, 0.08)',
                         zIndex: 0,
                         transition: 'width 0.3s ease',
                       }}

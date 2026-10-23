@@ -59,7 +59,7 @@ export const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
         <div
           style={{
             padding: '30px 20px 20px',
-            background: 'linear-gradient(135deg, #3730a3 0%, #4f46e5 100%)',
+            background: 'linear-gradient(135deg, #3730a3 0%, var(--accent-primary) 100%)',
             color: '#fff',
             display: 'flex',
             flexDirection: 'column',
@@ -93,7 +93,7 @@ export const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
               width: '80px',
               height: '80px',
               borderRadius: '50%',
-              background: '#6366f1',
+              background: 'var(--accent-primary)',
               border: '4px solid rgba(255, 255, 255, 0.3)',
               color: '#fff',
               fontSize: '32px',
@@ -229,8 +229,8 @@ export const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
               style={{
                 padding: '12px',
                 borderRadius: '8px',
-                background: 'rgba(108, 92, 255, 0.08)',
-                border: '1px solid rgba(108, 92, 255, 0.3)',
+                background: 'rgba(0, 168, 132, 0.08)',
+                border: '1px solid rgba(0, 168, 132, 0.3)',
                 marginBottom: '14px',
               }}
             >
@@ -334,9 +334,9 @@ export const GroupInfoModal: React.FC<GroupInfoModalProps> = ({
                           fontWeight: 700,
                           padding: '2px 8px',
                           borderRadius: '10px',
-                          background: 'rgba(108, 92, 255, 0.15)',
+                          background: 'rgba(0, 168, 132, 0.15)',
                           color: 'var(--accent-primary)',
-                          border: '1px solid rgba(108, 92, 255, 0.3)',
+                          border: '1px solid rgba(0, 168, 132, 0.3)',
                         }}
                       >
                         Group Admin

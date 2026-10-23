@@ -157,8 +157,8 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ contacts, on
                         padding: '8px 12px',
                         borderRadius: 'var(--radius-sm)',
                         cursor: 'pointer',
-                        background: isSelected ? 'rgba(108, 92, 255, 0.12)' : 'transparent',
-                        border: isSelected ? '1px solid rgba(108, 92, 255, 0.3)' : '1px solid transparent',
+                        background: isSelected ? 'rgba(0, 168, 132, 0.12)' : 'transparent',
+                        border: isSelected ? '1px solid rgba(0, 168, 132, 0.3)' : '1px solid transparent',
                         transition: 'var(--transition-fast)',
                         marginBottom: '4px',
                       }}

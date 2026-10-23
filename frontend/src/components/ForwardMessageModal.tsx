@@ -122,8 +122,8 @@ export const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
                     padding: '8px 12px',
                     borderRadius: '6px',
                     cursor: 'pointer',
-                    background: isSelected ? 'rgba(108, 92, 255, 0.12)' : 'transparent',
-                    border: isSelected ? '1px solid rgba(108, 92, 255, 0.3)' : '1px solid transparent',
+                    background: isSelected ? 'rgba(0, 168, 132, 0.12)' : 'transparent',
+                    border: isSelected ? '1px solid rgba(0, 168, 132, 0.3)' : '1px solid transparent',
                     marginBottom: '4px',
                   }}
                 >
@@ -135,7 +135,7 @@ export const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
                         height: '32px',
                         fontSize: '13px',
                         borderRadius: '50%',
-                        background: conv.type === 'GROUP' ? '#6366f1' : 'var(--accent-secondary)',
+                        background: conv.type === 'GROUP' ? 'var(--accent-primary)' : 'var(--accent-secondary)',
                         color: '#fff',
                         display: 'flex',
                         alignItems: 'center',

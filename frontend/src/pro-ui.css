@@ -420,3 +420,252 @@ html[data-theme] .modal-container {
     color: var(--accent-primary);
   }
 }
+
+/* ==========================================================================
+   Mobile polish (phones, up to 768px)
+   - Composer is one row: tools, text field, send (like WhatsApp).
+   - Touch targets are at least 40px.
+   - Bubbles use more of the width; list rows and header are tighter.
+   ========================================================================== */
+@media (max-width: 768px) {
+  html[data-theme] .chat-input-container {
+    padding: 6px 6px calc(6px + env(safe-area-inset-bottom, 0px));
+  }
+  html[data-theme] .chat-input-wrapper {
+    flex-wrap: nowrap;
+    align-items: flex-end;
+    gap: 2px;
+    padding: 4px 6px 4px 8px;
+    margin: 0;
+    border-radius: 24px;
+    background: var(--bg-tertiary);
+  }
+  html[data-theme] .chat-textarea {
+    order: 0;
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    height: auto;
+    min-height: 36px;
+    max-height: 120px;
+    overflow-y: auto;
+    padding: 8px 4px;
+    font-size: 16px; /* 16px stops iOS zooming into the field */
+    line-height: 1.35;
+  }
+  html[data-theme] .chat-input-wrapper .icon-btn {
+    padding: 0;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+  }
+  html[data-theme] .send-btn {
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+  }
+
+  html[data-theme] .message-row {
+    max-width: 82%;
+  }
+  html[data-theme] .message-bubble {
+    padding: 7px 10px 6px;
+    font-size: 15px;
+  }
+
+  html[data-theme] .conv-item {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  html[data-theme] .chat-header {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  html[data-theme] .rail-btn {
+    min-width: 40px;
+  }
+}
+
+/* ==========================================================================
+   "You" sheet and phone bottom bar
+   Phones show four tabs plus the avatar. Devices, theme, settings and log out
+   live in the avatar sheet, which slides up above the bar.
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* A blur on the bar would make it the containing block for the sheet. */
+  html[data-theme] .nav-rail {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  html[data-theme] .rail-top-group {
+    flex: 1 1 auto;
+  }
+  html[data-theme] .rail-bottom-group {
+    flex: 0 0 auto;
+    border-left: none;
+    margin-left: 0;
+    padding-left: 0;
+    padding-right: 6px;
+  }
+
+  html[data-theme] .whatsapp-dropdown-menu.you-sheet {
+    position: fixed !important;
+    left: 10px !important;
+    right: 10px !important;
+    top: auto !important;
+    bottom: 72px !important;
+    min-width: 0 !important;
+    width: auto !important;
+    max-height: 70vh;
+    overflow-y: auto;
+    border-radius: 16px !important;
+    backdrop-filter: none !important;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.35) !important;
+    z-index: 300 !important;
+    animation: pro-sheet-in 0.2s var(--fx-ease) backwards;
+  }
+  html[data-theme] .you-sheet .menu-item {
+    min-height: 46px;
+    font-size: 15px;
+  }
+}
+
+@keyframes pro-sheet-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Items that only appear in the phone "You" sheet */
+.mobile-only-you { display: none !important; }
+@media (max-width: 768px) {
+  .mobile-only-you { display: flex !important; }
+}
+
+/* ==========================================================================
+   Welcome screen (no chat selected): calm, one accent, no gradients
+   ========================================================================== */
+html[data-theme] .chat-splash-refined {
+  background: var(--bg-primary);
+  background-image: none;
+}
+html[data-theme] .chat-splash-refined::before,
+html[data-theme] .chat-splash-refined::after {
+  display: none;
+}
+html[data-theme] .splash-hero h2 {
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  -webkit-text-fill-color: currentColor;
+  color: var(--text-primary);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+html[data-theme] .splash-hero p {
+  color: var(--text-secondary);
+}
+html[data-theme] .splash-feature-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: none;
+  transform: none;
+}
+html[data-theme] .splash-feature-card:hover {
+  transform: none;
+  border-color: var(--border-default);
+}
+html[data-theme] .sf-ico,
+html[data-theme] .sf-a,
+html[data-theme] .sf-b,
+html[data-theme] .sf-c,
+html[data-theme] .sf-d {
+  background: var(--accent-soft);
+  color: var(--accent-primary);
+  box-shadow: none;
+}
+
+/* ==========================================================================
+   Phone bottom bar, WhatsApp-style: labelled tabs, a highlighted active tab,
+   a floating "new chat" button, and a green title.
+   ========================================================================== */
+@media (max-width: 768px) {
+  html[data-theme] .nav-rail {
+    padding: 0 4px;
+  }
+  html[data-theme] .rail-btn,
+  html[data-theme] .you-tab {
+    width: 64px;
+    height: 48px;
+    min-width: 0;
+    padding: 0;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    transform: none !important;
+  }
+  html[data-theme] .rail-btn::after,
+  html[data-theme] .you-tab::after {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--text-muted);
+  }
+  html[data-theme] .rail-btn.active {
+    background: var(--accent-soft);
+    color: var(--accent-primary);
+  }
+  html[data-theme] .rail-btn.active::after {
+    color: var(--text-primary);
+  }
+  html[data-theme] .you-tab .rail-avatar-btn {
+    width: 26px;
+    height: 26px;
+    margin-top: 0;
+    border-width: 1.5px;
+  }
+  html[data-theme] .rail-badge {
+    top: 2px;
+    right: 8px;
+  }
+
+  html[data-theme] .sidebar-title {
+    color: var(--accent-primary);
+  }
+
+  html[data-theme] .mobile-fab {
+    position: fixed;
+    right: 16px;
+    bottom: 76px;
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    display: grid;
+    place-items: center;
+    background: var(--accent-primary);
+    color: #ffffff;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3);
+    z-index: 25;
+  }
+  html[data-theme] .mobile-fab:hover {
+    background: var(--accent-secondary);
+  }
+
+  html[data-theme] .conversation-list {
+    padding-bottom: 96px;
+  }
+}
+
+/* Phones: the two rail groups are flattened so every tab sits in one row, in order. */
+@media (max-width: 768px) {
+  html[data-theme] .rail-top-group,
+  html[data-theme] .rail-bottom-group {
+    display: contents !important;
+  }
+}
