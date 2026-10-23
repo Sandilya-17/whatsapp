@@ -28,7 +28,7 @@ export interface Conversation {
   /** Newest message in the chat, its sender, and its delivery status (drives chat-list ticks). */
   lastMessageId?: number | null;
   lastMessageSenderId?: number | null;
-  lastMessageStatus?: 'SENT' | 'DELIVERED' | 'READ' | null;
+  lastMessageStatus?: 'PENDING' | 'SENT' | 'DELIVERED' | 'READ' | null;
   unreadCount: number;
   isPinned?: boolean;
   isArchived?: boolean;
