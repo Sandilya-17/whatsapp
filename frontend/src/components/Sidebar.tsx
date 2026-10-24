@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import type { User, Conversation, ContactRequest, CallRecord, Message, StatusStory } from '../types';
 import { getStoredStories, subscribeToStatusUpdates, startStatusSync } from '../utils/statusStorage';
 import { readDraft } from '../utils/chatUi';
@@ -192,10 +193,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Avatar popover menu state
   const [showAvatarMenu, setShowAvatarMenu] = useState(false);
   const avatarMenuRef = useRef<HTMLDivElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const [menuPos, setMenuPos] = useState({ left: 60, bottom: 72 });
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (avatarMenuRef.current && !avatarMenuRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const insideAvatar = !!avatarMenuRef.current && avatarMenuRef.current.contains(target);
+      const insideSheet = !!sheetRef.current && sheetRef.current.contains(target);
+      if (!insideAvatar && !insideSheet) {
         setShowAvatarMenu(false);
       }
     };
@@ -458,7 +464,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div ref={avatarMenuRef} className="you-tab" data-label="You" style={{ position: 'relative' }}>
             <div
               className="rail-avatar-btn"
-              onClick={() => setShowAvatarMenu(!showAvatarMenu)}
+              onClick={() => {
+                if (!showAvatarMenu && avatarMenuRef.current) {
+                  const r = avatarMenuRef.current.getBoundingClientRect();
+                  setMenuPos({ left: r.right + 8, bottom: window.innerHeight - r.bottom });
+                }
+                setShowAvatarMenu(!showAvatarMenu);
+              }}
               title={`${currentUser?.displayName || currentUser?.username || 'You'} (@${currentUser?.username || 'user'}) - Click for options`}
             >
               {currentUser?.avatarUrl ? (
@@ -487,13 +499,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="status-dot online" style={{ width: '10px', height: '10px', borderWidth: '2px' }} />
             </div>
 
-            {showAvatarMenu && (
+            {showAvatarMenu && createPortal(
               <div
+                ref={sheetRef}
                 className="whatsapp-dropdown-menu you-sheet"
                 style={{
-                  position: 'absolute',
-                  bottom: '0',
-                  left: '52px',
+                  position: 'fixed',
+                  bottom: menuPos.bottom,
+                  left: menuPos.left,
                   minWidth: '255px',
                   background: 'var(--bg-surface)',
                   border: '1px solid var(--border-subtle)',
@@ -649,8 +662,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <LogOut size={16} />
                   <span>Log out</span>
                 </button>
-              </div>
-            )}
+              </div>, document.body)}
           </div>
         </div>
       </nav>
